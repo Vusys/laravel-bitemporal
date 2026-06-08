@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Vusys\Bitemporal\Backfill\BitemporalBackfill;
 use Vusys\Bitemporal\BitemporalBuilder;
 use Vusys\Bitemporal\Events\TemporalChangeCommitted;
 use Vusys\Bitemporal\Events\TemporalCorrectionCommitted;
@@ -68,6 +69,23 @@ trait HasTemporalWrites
     public function forceDeleteHistory(): TemporalHardDeleteCommitted
     {
         return $this->temporalWriter()->forceDeleteHistory();
+    }
+
+    public function backfill(): BitemporalBackfill
+    {
+        /** @var Application $app */
+        $app = app();
+
+        $query = $this->getQuery();
+        $dimensions = $query instanceof BitemporalBuilder ? $query->temporalDimensionTuple() : [];
+
+        return new BitemporalBackfill(
+            $this->getRelated(),
+            $this->getParent(),
+            $dimensions,
+            $app->make(WriteLocker::class),
+            $app->make(Dispatcher::class),
+        );
     }
 
     private function temporalWriter(): BitemporalWriter

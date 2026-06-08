@@ -9,8 +9,6 @@ use Carbon\CarbonInterface;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Vusys\Bitemporal\BitemporalBuilder;
 use Vusys\Bitemporal\Events\TemporalChangeCommitted;
 use Vusys\Bitemporal\Events\TemporalChangeStarting;
@@ -32,6 +30,7 @@ use Vusys\Bitemporal\Exceptions\TemporalOverlapException;
 use Vusys\Bitemporal\Locking\WriteLocker;
 use Vusys\Bitemporal\Spell;
 use Vusys\Bitemporal\Support\DimensionValidator;
+use Vusys\Bitemporal\Support\EntityScope;
 use Vusys\Bitemporal\Support\TemporalEntityMetadata;
 use Vusys\Bitemporal\Timeline;
 use Vusys\Bitemporal\TimelineSegment;
@@ -73,24 +72,7 @@ final readonly class BitemporalWriter
      */
     private function resolveEntityScope(): array
     {
-        if (! method_exists($this->related, 'temporalEntity')) {
-            throw new TemporalInvalidSpellException($this->related::class.' must define a temporalEntity() relation');
-        }
-
-        $relation = $this->related->temporalEntity();
-
-        if ($relation instanceof MorphTo) {
-            return [
-                $relation->getMorphType() => $this->entity->getMorphClass(),
-                $relation->getForeignKeyName() => $this->entity->getKey(),
-            ];
-        }
-
-        if ($relation instanceof BelongsTo) {
-            return [$relation->getForeignKeyName() => $this->entity->getKey()];
-        }
-
-        throw new TemporalInvalidSpellException('temporalEntity() must return a BelongsTo or MorphTo relation');
+        return EntityScope::resolve($this->related, $this->entity);
     }
 
     /**
