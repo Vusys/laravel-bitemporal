@@ -42,4 +42,12 @@ class Product extends Model
     {
         return $this->bitemporalOneOrFail(ProductPrice::class);
     }
+
+    /**
+     * @return BitemporalMany<ProductPriceWithDimensions, $this>
+     */
+    public function dimensionedPrices(): BitemporalMany
+    {
+        return $this->bitemporalMany(ProductPriceWithDimensions::class);
+    }
 }

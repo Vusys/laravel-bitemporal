@@ -8,11 +8,13 @@ use Carbon\CarbonInterface;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
+use Vusys\Bitemporal\BitemporalBuilder;
 use Vusys\Bitemporal\Events\TemporalChangeCommitted;
 use Vusys\Bitemporal\Events\TemporalCorrectionCommitted;
 use Vusys\Bitemporal\Events\TemporalHardDeleteCommitted;
 use Vusys\Bitemporal\Events\TemporalRetractionCommitted;
 use Vusys\Bitemporal\Events\TemporalTimelineSuperseded;
+use Vusys\Bitemporal\Exceptions\TemporalMissingDimensionException;
 use Vusys\Bitemporal\Locking\WriteLocker;
 use Vusys\Bitemporal\Writers\BitemporalWriter;
 use Vusys\Bitemporal\Writers\TimelineSplitter;
@@ -70,11 +72,25 @@ trait HasTemporalWrites
         /** @var Application $app */
         $app = app();
 
+        $related = $this->getRelated();
+        $declared = method_exists($related, 'temporalDimensions') ? $related->temporalDimensions() : [];
+
+        $query = $this->getQuery();
+        $dimensions = [];
+
+        if ($query instanceof BitemporalBuilder) {
+            if ($query->hasWheresOutside([$this->getForeignKeyName(), ...$declared])) {
+                throw TemporalMissingDimensionException::pendingWhere();
+            }
+
+            $dimensions = $query->temporalDimensionTuple();
+        }
+
         return new BitemporalWriter(
-            $this->getRelated(),
+            $related,
             $this->getParent(),
             $this->getForeignKeyName(),
-            [],
+            $dimensions,
             $app->make(WriteLocker::class),
             new TimelineSplitter,
             $app->make(Dispatcher::class),

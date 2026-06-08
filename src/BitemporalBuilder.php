@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\MultipleRecordsFoundException;
 use Illuminate\Support\Collection as SupportCollection;
 use Vusys\Bitemporal\Concerns\HasSpellQueries;
+use Vusys\Bitemporal\Concerns\HasTemporalDimensions;
 use Vusys\Bitemporal\Exceptions\TemporalCardinalityException;
 use Vusys\Bitemporal\Exceptions\TemporalConfigurationException;
 use Vusys\Bitemporal\Support\TemporalEntityMetadata;
@@ -28,6 +29,7 @@ use Vusys\Bitemporal\Support\TemporalEntityMetadata;
 class BitemporalBuilder extends Builder
 {
     use HasSpellQueries;
+    use HasTemporalDimensions;
 
     private ?TemporalEntityMetadata $temporalMeta = null;
 
