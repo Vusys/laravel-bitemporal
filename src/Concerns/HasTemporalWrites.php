@@ -10,6 +10,9 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
 use Vusys\Bitemporal\Events\TemporalChangeCommitted;
 use Vusys\Bitemporal\Events\TemporalCorrectionCommitted;
+use Vusys\Bitemporal\Events\TemporalHardDeleteCommitted;
+use Vusys\Bitemporal\Events\TemporalRetractionCommitted;
+use Vusys\Bitemporal\Events\TemporalTimelineSuperseded;
 use Vusys\Bitemporal\Locking\WriteLocker;
 use Vusys\Bitemporal\Writers\BitemporalWriter;
 use Vusys\Bitemporal\Writers\TimelineSplitter;
@@ -37,6 +40,29 @@ trait HasTemporalWrites
     public function correct(array $attributes, CarbonInterface|string|null $validFrom = null, CarbonInterface|string|null $validTo = null, ?bool $compact = null): TemporalCorrectionCommitted
     {
         return $this->temporalWriter()->correct($attributes, $validFrom, $validTo, $compact);
+    }
+
+    public function retract(CarbonInterface|string $validFrom, CarbonInterface|string|null $validTo = null, ?bool $compact = null): TemporalRetractionCommitted
+    {
+        return $this->temporalWriter()->retract($validFrom, $validTo, $compact);
+    }
+
+    public function endAt(CarbonInterface|string $validTo, ?bool $compact = null): TemporalChangeCommitted
+    {
+        return $this->temporalWriter()->endAt($validTo, $compact);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    public function supersedeTimeline(array $rows, ?bool $compact = null): TemporalTimelineSuperseded
+    {
+        return $this->temporalWriter()->supersedeTimeline($rows, $compact);
+    }
+
+    public function forceDeleteHistory(): TemporalHardDeleteCommitted
+    {
+        return $this->temporalWriter()->forceDeleteHistory();
     }
 
     private function temporalWriter(): BitemporalWriter

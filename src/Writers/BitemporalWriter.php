@@ -16,7 +16,13 @@ use Vusys\Bitemporal\Events\TemporalCompactionPerformed;
 use Vusys\Bitemporal\Events\TemporalCorrectionCommitted;
 use Vusys\Bitemporal\Events\TemporalCorrectionStarting;
 use Vusys\Bitemporal\Events\TemporalFutureRowEncountered;
+use Vusys\Bitemporal\Events\TemporalHardDeleteCommitted;
+use Vusys\Bitemporal\Events\TemporalHardDeleteStarting;
 use Vusys\Bitemporal\Events\TemporalOverlapPrevented;
+use Vusys\Bitemporal\Events\TemporalRetractionCommitted;
+use Vusys\Bitemporal\Events\TemporalRetractionStarting;
+use Vusys\Bitemporal\Events\TemporalTimelineSuperseded;
+use Vusys\Bitemporal\Events\TemporalTimelineSupersedingStarting;
 use Vusys\Bitemporal\Events\TemporalWriteCommitted;
 use Vusys\Bitemporal\Exceptions\TemporalInvalidSpellException;
 use Vusys\Bitemporal\Exceptions\TemporalMissingDimensionException;
@@ -60,9 +66,13 @@ final readonly class BitemporalWriter
 
         $committed = $this->run(
             fn (Timeline $current): Spell => $this->forwardWindow($current, $from),
+            fn (Timeline $current, Spell $window, array $columns): Timeline => $current->applyCorrection(
+                new TimelineSegment($window, null, $this->normalise($attributes, $columns), false),
+            ),
             $attributes,
             $compact,
-            change: true,
+            fn (Spell $window): object => new TemporalChangeStarting($this->related::class, $this->entity, $this->dimensions, $window),
+            fn (CarbonImmutable $at, array $closed, array $inserted, bool $compacted): TemporalWriteCommitted => new TemporalChangeCommitted($this->related::class, $this->entity, $this->dimensions, $at, $closed, $inserted, $compacted),
         );
 
         return $committed instanceof TemporalChangeCommitted
@@ -75,14 +85,20 @@ final readonly class BitemporalWriter
      */
     public function correct(array $attributes, CarbonInterface|string|null $validFrom = null, CarbonInterface|string|null $validTo = null, ?bool $compact = null): TemporalCorrectionCommitted
     {
-        $from = $validFrom === null ? null : $this->instant($validFrom);
-        $to = $validTo === null ? null : $this->instant($validTo);
+        $window = new Spell(
+            $validFrom === null ? null : $this->instant($validFrom),
+            $validTo === null ? null : $this->instant($validTo),
+        );
 
         $committed = $this->run(
-            static fn (): Spell => new Spell($from, $to),
+            static fn (): Spell => $window,
+            fn (Timeline $current, Spell $w, array $columns): Timeline => $current->applyCorrection(
+                new TimelineSegment($w, null, $this->normalise($attributes, $columns), false),
+            ),
             $attributes,
             $compact,
-            change: false,
+            fn (Spell $w): object => new TemporalCorrectionStarting($this->related::class, $this->entity, $this->dimensions, $w),
+            fn (CarbonImmutable $at, array $closed, array $inserted, bool $compacted): TemporalWriteCommitted => new TemporalCorrectionCommitted($this->related::class, $this->entity, $this->dimensions, $at, $closed, $inserted, $compacted),
         );
 
         return $committed instanceof TemporalCorrectionCommitted
@@ -90,15 +106,107 @@ final readonly class BitemporalWriter
             : throw new TemporalInvalidSpellException('unexpected write result');
     }
 
+    public function retract(CarbonInterface|string $validFrom, CarbonInterface|string|null $validTo = null, ?bool $compact = null): TemporalRetractionCommitted
+    {
+        $window = new Spell($this->instant($validFrom), $validTo === null ? null : $this->instant($validTo));
+
+        $committed = $this->run(
+            static fn (): Spell => $window,
+            static fn (Timeline $current, Spell $w): Timeline => $current->applyRetraction($w),
+            [],
+            $compact,
+            fn (Spell $w): object => new TemporalRetractionStarting($this->related::class, $this->entity, $this->dimensions, $w),
+            fn (CarbonImmutable $at, array $closed, array $inserted, bool $compacted): TemporalWriteCommitted => new TemporalRetractionCommitted($this->related::class, $this->entity, $this->dimensions, $at, $closed, $inserted, $compacted),
+        );
+
+        return $committed instanceof TemporalRetractionCommitted
+            ? $committed
+            : throw new TemporalInvalidSpellException('unexpected write result');
+    }
+
+    public function endAt(CarbonInterface|string $validTo, ?bool $compact = null): TemporalChangeCommitted
+    {
+        $boundary = $this->instant($validTo);
+        $window = new Spell($boundary, null);
+
+        $committed = $this->run(
+            static fn (): Spell => $window,
+            static fn (Timeline $current, Spell $w): Timeline => $current->subtract($w),
+            [],
+            $compact,
+            fn (Spell $w): object => new TemporalChangeStarting($this->related::class, $this->entity, $this->dimensions, $w),
+            fn (CarbonImmutable $at, array $closed, array $inserted, bool $compacted): TemporalWriteCommitted => new TemporalChangeCommitted($this->related::class, $this->entity, $this->dimensions, $at, $closed, $inserted, $compacted),
+        );
+
+        return $committed instanceof TemporalChangeCommitted
+            ? $committed
+            : throw new TemporalInvalidSpellException('unexpected write result');
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows  each row: value attributes + valid_from + valid_to (+ optional is_retraction)
+     */
+    public function supersedeTimeline(array $rows, ?bool $compact = null): TemporalTimelineSuperseded
+    {
+        $merged = [];
+        foreach ($rows as $row) {
+            foreach ($this->rowValueAttributes($row) as $key => $value) {
+                $merged[$key] = $value;
+            }
+        }
+
+        $committed = $this->run(
+            static fn (): Spell => Spell::unbounded(),
+            fn (Timeline $current, Spell $w, array $columns): Timeline => $this->timelineFromRows($rows, $columns),
+            $merged,
+            $compact,
+            fn (Spell $w): object => new TemporalTimelineSupersedingStarting($this->related::class, $this->entity, $this->dimensions, $w),
+            fn (CarbonImmutable $at, array $closed, array $inserted, bool $compacted): TemporalWriteCommitted => new TemporalTimelineSuperseded($this->related::class, $this->entity, $this->dimensions, $at, $closed, $inserted, $compacted),
+        );
+
+        return $committed instanceof TemporalTimelineSuperseded
+            ? $committed
+            : throw new TemporalInvalidSpellException('unexpected write result');
+    }
+
+    public function forceDeleteHistory(): TemporalHardDeleteCommitted
+    {
+        $committed = $this->connection()->transaction(function (): TemporalHardDeleteCommitted {
+            $this->locker->lockFor($this->entity, $this->dimensions, $this->parentLockTimeout());
+
+            $ids = array_map(
+                static fn (Model $model): mixed => $model->getKey(),
+                $this->newQuery()->get()->all(),
+            );
+
+            $this->events->dispatch(new TemporalHardDeleteStarting($this->related::class, $this->entity, $this->dimensions, $ids));
+
+            $this->newQuery()->delete();
+
+            return new TemporalHardDeleteCommitted($this->related::class, $this->entity, $this->dimensions, $ids);
+        });
+
+        if (! $committed instanceof TemporalHardDeleteCommitted) {
+            throw new TemporalInvalidSpellException('unexpected write result');
+        }
+
+        $this->events->dispatch($committed);
+
+        return $committed;
+    }
+
     /**
      * @param  \Closure(Timeline): Spell  $windowResolver
+     * @param  \Closure(Timeline, Spell, array<int, string>): Timeline  $transform
      * @param  array<string, mixed>  $attributes
+     * @param  \Closure(Spell): object  $starting
+     * @param  \Closure(CarbonImmutable, array<int, Model>, array<int, Model>, bool): TemporalWriteCommitted  $committed
      */
-    private function run(\Closure $windowResolver, array $attributes, ?bool $compact, bool $change): TemporalWriteCommitted
+    private function run(\Closure $windowResolver, \Closure $transform, array $attributes, ?bool $compact, \Closure $starting, \Closure $committed): TemporalWriteCommitted
     {
         $this->assertNoForbiddenAttributes($attributes);
 
-        $committed = $this->connection()->transaction(function () use ($windowResolver, $attributes, $compact, $change): TemporalWriteCommitted {
+        $result = $this->connection()->transaction(function () use ($windowResolver, $transform, $attributes, $compact, $starting, $committed): TemporalWriteCommitted {
             $this->locker->lockFor($this->entity, $this->dimensions, $this->parentLockTimeout());
 
             $recordedAt = $this->captureRecordedAt();
@@ -107,9 +215,7 @@ final readonly class BitemporalWriter
             $current = $this->toTimeline($currentModels, $valueColumns);
 
             $window = $windowResolver($current);
-
-            $correction = new TimelineSegment($window, null, $this->normalise($attributes, $valueColumns), false);
-            $next = $current->applyCorrection($correction);
+            $next = $transform($current, $window, $valueColumns);
 
             $before = $next->count();
             if ($compact ?? $this->compactByDefault()) {
@@ -117,9 +223,7 @@ final readonly class BitemporalWriter
             }
             $compacted = $next->count() !== $before;
 
-            $this->events->dispatch($change
-                ? new TemporalChangeStarting($this->related::class, $this->entity, $this->dimensions, $window)
-                : new TemporalCorrectionStarting($this->related::class, $this->entity, $this->dimensions, $window));
+            $this->events->dispatch($starting($window));
 
             $plan = $this->splitter->plan($current, $next);
 
@@ -146,21 +250,78 @@ final readonly class BitemporalWriter
 
             $this->assertNoCurrentOverlaps();
 
-            return $change
-                ? new TemporalChangeCommitted($this->related::class, $this->entity, $this->dimensions, $recordedAt, $rowsClosed, $rowsInserted, $compacted)
-                : new TemporalCorrectionCommitted($this->related::class, $this->entity, $this->dimensions, $recordedAt, $rowsClosed, $rowsInserted, $compacted);
+            return $committed($recordedAt, $rowsClosed, $rowsInserted, $compacted);
         });
 
-        if (! $committed instanceof TemporalWriteCommitted) {
+        if (! $result instanceof TemporalWriteCommitted) {
             throw new TemporalInvalidSpellException('unexpected write result');
         }
 
         // The transaction has committed by the time control returns here; firing
         // the committed event now keeps audit-log subscribers outside the write
         // transaction (matching DB::afterCommit semantics for top-level writes).
-        $this->events->dispatch($committed);
+        $this->events->dispatch($result);
 
-        return $committed;
+        return $result;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     * @param  array<int, string>  $valueColumns
+     */
+    private function timelineFromRows(array $rows, array $valueColumns): Timeline
+    {
+        $segments = [];
+        foreach ($rows as $row) {
+            $segments[] = new TimelineSegment(
+                new Spell(
+                    $this->rowInstant($row, $this->meta->validFrom),
+                    $this->rowInstant($row, $this->meta->validTo),
+                ),
+                null,
+                $this->normalise($this->rowValueAttributes($row), $valueColumns),
+                (bool) ($row[$this->meta->isRetraction] ?? false),
+            );
+        }
+
+        return new Timeline($segments);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function rowValueAttributes(array $row): array
+    {
+        $reserved = $this->reservedColumns();
+
+        return array_filter(
+            $row,
+            fn (string $key): bool => ! in_array($key, $reserved, true),
+            ARRAY_FILTER_USE_KEY,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function rowInstant(array $row, string $column): ?CarbonImmutable
+    {
+        $value = $row[$column] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        if ($value instanceof CarbonInterface) {
+            return CarbonImmutable::instance($value);
+        }
+
+        if (is_string($value)) {
+            return $this->instant($value);
+        }
+
+        throw new TemporalInvalidSpellException("superseded row has an invalid {$column} value");
     }
 
     private function forwardWindow(Timeline $current, CarbonImmutable $from): Spell
