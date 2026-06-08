@@ -9,6 +9,8 @@ use Carbon\CarbonInterface;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Vusys\Bitemporal\BitemporalBuilder;
 use Vusys\Bitemporal\Events\TemporalChangeCommitted;
 use Vusys\Bitemporal\Events\TemporalChangeStarting;
@@ -39,12 +41,20 @@ final readonly class BitemporalWriter
     private TemporalEntityMetadata $meta;
 
     /**
+     * Columns that pin a row to the temporal entity, mapped to the values to
+     * filter and stamp: ['owner_id' => 42] for a BelongsTo, or
+     * ['owner_type' => 'customer', 'owner_id' => 42] for a MorphTo.
+     *
+     * @var array<string, mixed>
+     */
+    private array $entityScope;
+
+    /**
      * @param  array<string, mixed>  $dimensions
      */
     public function __construct(
         private Model $related,
         private Model $entity,
-        private string $foreignKey,
         private array $dimensions,
         private WriteLocker $locker,
         private TimelineSplitter $splitter,
@@ -55,6 +65,32 @@ final readonly class BitemporalWriter
         }
 
         $this->meta = $related->temporalMetadata();
+        $this->entityScope = $this->resolveEntityScope();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function resolveEntityScope(): array
+    {
+        if (! method_exists($this->related, 'temporalEntity')) {
+            throw new TemporalInvalidSpellException($this->related::class.' must define a temporalEntity() relation');
+        }
+
+        $relation = $this->related->temporalEntity();
+
+        if ($relation instanceof MorphTo) {
+            return [
+                $relation->getMorphType() => $this->entity->getMorphClass(),
+                $relation->getForeignKeyName() => $this->entity->getKey(),
+            ];
+        }
+
+        if ($relation instanceof BelongsTo) {
+            return [$relation->getForeignKeyName() => $this->entity->getKey()];
+        }
+
+        throw new TemporalInvalidSpellException('temporalEntity() must return a BelongsTo or MorphTo relation');
     }
 
     /**
@@ -447,7 +483,11 @@ final readonly class BitemporalWriter
     {
         $row = $this->related->newInstance();
         $row->forceFill($segment->attributes);
-        $row->setAttribute($this->foreignKey, $this->entity->getKey());
+
+        foreach ($this->entityScope as $column => $value) {
+            $row->setAttribute($column, $value);
+        }
+
         $row->setAttribute($this->meta->validFrom, $segment->validSpell->from);
         $row->setAttribute($this->meta->validTo, $segment->validSpell->to);
         $row->setAttribute($this->meta->isRetraction, $segment->isRetraction);
@@ -534,7 +574,7 @@ final readonly class BitemporalWriter
 
         return [
             $this->related->getKeyName(),
-            $this->foreignKey,
+            ...array_keys($this->entityScope),
             $this->meta->validFrom,
             $this->meta->validTo,
             $this->meta->recordedFrom,
@@ -558,7 +598,10 @@ final readonly class BitemporalWriter
 
         // Writes read the true stored state, never an ambient point-in-time lens.
         $query->withoutLens();
-        $query->where($this->foreignKey, $this->entity->getKey());
+
+        foreach ($this->entityScope as $column => $value) {
+            $query->where($column, '=', $value);
+        }
 
         foreach ($this->dimensions as $column => $value) {
             if ($value === null) {

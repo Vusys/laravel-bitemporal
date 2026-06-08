@@ -6,13 +6,13 @@ namespace Vusys\Bitemporal\Collections;
 
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Collection as SupportCollection;
+use Vusys\Bitemporal\Collections\Concerns\HasPolymorphicGrouping;
 use Vusys\Bitemporal\Exceptions\TemporalConfigurationException;
 
 /**
  * Collection returned by temporal queries. Adds entity-keying and grouping
- * helpers. Polymorphic temporal entities are supported from Phase 8.
+ * helpers that work for both BelongsTo and MorphTo temporal entities.
  *
  * @template TKey of array-key
  * @template TModel of Model
@@ -21,6 +21,8 @@ use Vusys\Bitemporal\Exceptions\TemporalConfigurationException;
  */
 class BitemporalCollection extends Collection
 {
+    use HasPolymorphicGrouping;
+
     /**
      * Key rows by their bare temporal-entity id. Throws on polymorphic entities
      * (ids are not unique across types — use keyByTemporalEntityReference()).
@@ -29,7 +31,15 @@ class BitemporalCollection extends Collection
      */
     public function keyByTemporalEntityId(): SupportCollection
     {
-        return $this->keyBy(fn (Model $model): int|string => $this->temporalEntityId($model));
+        return $this->keyBy(function (Model $model): int|string {
+            if ($this->temporalEntityIsPolymorphic($model)) {
+                throw new TemporalConfigurationException(
+                    'keyByTemporalEntityId() is unavailable for polymorphic temporal entities; use keyByTemporalEntityReference()',
+                );
+            }
+
+            return $this->temporalEntityId($model);
+        });
     }
 
     /**
@@ -50,46 +60,5 @@ class BitemporalCollection extends Collection
     public function groupByTemporalEntity(): SupportCollection
     {
         return $this->groupBy(fn (Model $model): string => $this->temporalEntityReference($model));
-    }
-
-    private function temporalEntityId(Model $model): int|string
-    {
-        $value = $model->getAttribute($this->temporalBelongsTo($model)->getForeignKeyName());
-
-        if (is_int($value) || is_string($value)) {
-            return $value;
-        }
-
-        throw new TemporalConfigurationException(
-            'temporal entity key must be an int or string; got '.get_debug_type($value),
-        );
-    }
-
-    private function temporalEntityReference(Model $model): string
-    {
-        $relation = $this->temporalBelongsTo($model);
-        $type = $relation->getRelated()->getMorphClass();
-
-        return $type.':'.$this->temporalEntityId($model);
-    }
-
-    /**
-     * @return BelongsTo<Model, TModel>
-     */
-    private function temporalBelongsTo(Model $model): BelongsTo
-    {
-        if (! method_exists($model, 'temporalEntity')) {
-            throw TemporalConfigurationException::missingTemporalEntity($model::class);
-        }
-
-        $relation = $model->temporalEntity();
-
-        if (! $relation instanceof BelongsTo) {
-            throw new TemporalConfigurationException(
-                'polymorphic temporal entities are supported from Phase 8',
-            );
-        }
-
-        return $relation;
     }
 }
