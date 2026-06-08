@@ -18,6 +18,10 @@ return [
         'allow_zero_length' => false,
     ],
 
+    'guards' => [
+        'enabled' => true,
+    ],
+
     'writes' => [
         'compact_adjacent_segments' => true,
         'compaction_excluded_columns' => ['created_at', 'updated_at'],
