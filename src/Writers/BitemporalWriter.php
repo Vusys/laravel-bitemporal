@@ -27,8 +27,10 @@ use Vusys\Bitemporal\Events\TemporalWriteCommitted;
 use Vusys\Bitemporal\Exceptions\TemporalInvalidSpellException;
 use Vusys\Bitemporal\Exceptions\TemporalMissingDimensionException;
 use Vusys\Bitemporal\Exceptions\TemporalOverlapException;
+use Vusys\Bitemporal\Exceptions\TemporalWriteConflictException;
 use Vusys\Bitemporal\Locking\WriteLocker;
 use Vusys\Bitemporal\Spell;
+use Vusys\Bitemporal\Support\AttributeEquality;
 use Vusys\Bitemporal\Support\DimensionValidator;
 use Vusys\Bitemporal\Support\EntityScope;
 use Vusys\Bitemporal\Support\TemporalEntityMetadata;
@@ -77,8 +79,9 @@ final readonly class BitemporalWriter
 
     /**
      * @param  array<string, mixed>  $attributes
+     * @param  array<string, mixed>|null  $expectedCurrentAttributes
      */
-    public function changeEffectiveFrom(array $attributes, CarbonInterface|string $validFrom, ?bool $compact = null): TemporalChangeCommitted
+    public function changeEffectiveFrom(array $attributes, CarbonInterface|string $validFrom, ?bool $compact = null, ?array $expectedCurrentAttributes = null): TemporalChangeCommitted
     {
         $from = $this->instant($validFrom);
         $this->assertForwardDated($from);
@@ -93,6 +96,7 @@ final readonly class BitemporalWriter
             $compact,
             fn (Spell $window): object => new TemporalChangeStarting($this->related::class, $this->entity, $this->dimensions, $window),
             fn (CarbonImmutable $at, array $closed, array $inserted, bool $compacted): TemporalWriteCommitted => new TemporalChangeCommitted($this->related::class, $this->entity, $this->dimensions, $at, $closed, $inserted, $compacted),
+            $expectedCurrentAttributes,
         );
 
         return $committed instanceof TemporalChangeCommitted
@@ -102,8 +106,9 @@ final readonly class BitemporalWriter
 
     /**
      * @param  array<string, mixed>  $attributes
+     * @param  array<string, mixed>|null  $expectedCurrentAttributes
      */
-    public function correct(array $attributes, CarbonInterface|string|null $validFrom = null, CarbonInterface|string|null $validTo = null, ?bool $compact = null): TemporalCorrectionCommitted
+    public function correct(array $attributes, CarbonInterface|string|null $validFrom = null, CarbonInterface|string|null $validTo = null, ?bool $compact = null, ?array $expectedCurrentAttributes = null): TemporalCorrectionCommitted
     {
         $window = new Spell(
             $validFrom === null ? null : $this->instant($validFrom),
@@ -120,6 +125,7 @@ final readonly class BitemporalWriter
             $compact,
             fn (Spell $w): object => new TemporalCorrectionStarting($this->related::class, $this->entity, $this->dimensions, $w),
             fn (CarbonImmutable $at, array $closed, array $inserted, bool $compacted): TemporalWriteCommitted => new TemporalCorrectionCommitted($this->related::class, $this->entity, $this->dimensions, $at, $closed, $inserted, $compacted),
+            $expectedCurrentAttributes,
         );
 
         return $committed instanceof TemporalCorrectionCommitted
@@ -222,13 +228,14 @@ final readonly class BitemporalWriter
      * @param  array<string, mixed>  $attributes
      * @param  \Closure(Spell): object  $starting
      * @param  \Closure(CarbonImmutable, array<int, Model>, array<int, Model>, bool): TemporalWriteCommitted  $committed
+     * @param  array<string, mixed>|null  $expectedCurrentAttributes
      */
-    private function run(\Closure $windowResolver, \Closure $transform, array $attributes, ?bool $compact, \Closure $starting, \Closure $committed): TemporalWriteCommitted
+    private function run(\Closure $windowResolver, \Closure $transform, array $attributes, ?bool $compact, \Closure $starting, \Closure $committed, ?array $expectedCurrentAttributes = null): TemporalWriteCommitted
     {
         $this->assertNoForbiddenAttributes($attributes);
         DimensionValidator::assertComplete($this->meta->dimensions, $this->dimensions);
 
-        $result = $this->connection()->transaction(function () use ($windowResolver, $transform, $attributes, $compact, $starting, $committed): TemporalWriteCommitted {
+        $result = $this->connection()->transaction(function () use ($windowResolver, $transform, $attributes, $compact, $starting, $committed, $expectedCurrentAttributes): TemporalWriteCommitted {
             $this->locker->lockFor($this->entity, $this->dimensions, $this->parentLockTimeout());
 
             $recordedAt = $this->captureRecordedAt();
@@ -237,6 +244,11 @@ final readonly class BitemporalWriter
             $current = $this->toTimeline($currentModels, $valueColumns);
 
             $window = $windowResolver($current);
+
+            if ($expectedCurrentAttributes !== null) {
+                $this->assertExpectedCurrent($current, $window, $expectedCurrentAttributes);
+            }
+
             $next = $transform($current, $window, $valueColumns);
 
             $before = $next->count();
@@ -273,7 +285,7 @@ final readonly class BitemporalWriter
             $this->assertNoCurrentOverlaps();
 
             return $committed($recordedAt, $rowsClosed, $rowsInserted, $compacted);
-        });
+        }, $this->deadlockRetryAttempts());
 
         if (! $result instanceof TemporalWriteCommitted) {
             throw new TemporalInvalidSpellException('unexpected write result');
@@ -344,6 +356,21 @@ final readonly class BitemporalWriter
         }
 
         throw new TemporalInvalidSpellException("superseded row has an invalid {$column} value");
+    }
+
+    /**
+     * @param  array<string, mixed>  $expected
+     */
+    private function assertExpectedCurrent(Timeline $current, Spell $window, array $expected): void
+    {
+        $segment = $window->from instanceof CarbonImmutable ? $current->at($window->from) : $current->head();
+        $actual = $segment instanceof TimelineSegment ? $segment->attributes : [];
+
+        foreach ($expected as $key => $value) {
+            if (! array_key_exists($key, $actual) || ! AttributeEquality::equals($actual[$key], $value)) {
+                throw TemporalWriteConflictException::expectationFailed($key);
+            }
+        }
     }
 
     private function forwardWindow(Timeline $current, CarbonImmutable $from): Spell
@@ -618,6 +645,11 @@ final readonly class BitemporalWriter
     private function parentLockTimeout(): int
     {
         return $this->intConfig('bitemporal.writes.parent_lock_timeout_ms', 5000);
+    }
+
+    private function deadlockRetryAttempts(): int
+    {
+        return max(1, $this->intConfig('bitemporal.writes.deadlock_retry_attempts', 1));
     }
 
     private function intConfig(string $key, int $default): int

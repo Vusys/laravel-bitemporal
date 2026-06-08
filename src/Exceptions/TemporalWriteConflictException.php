@@ -17,4 +17,14 @@ final class TemporalWriteConflictException extends TemporalException
     {
         return new self("the host clock appears to have regressed for {$tuple}; refusing to write");
     }
+
+    public static function expectationFailed(string $column): self
+    {
+        return new self("optimistic check failed: the current value of '{$column}' is not what was expected; another write got there first");
+    }
+
+    public static function idempotencyKeyReused(string $key): self
+    {
+        return new self("idempotency key '{$key}' was already used with different parameters");
+    }
 }
