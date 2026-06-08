@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Tests\Integration;
+namespace Vusys\Bitemporal\Tests\Integration;
 
-use Bitemporal\Tests\Fixtures\Models\Product;
-use Bitemporal\Tests\Fixtures\Models\ProductPrice;
-use Bitemporal\Tests\TestCase;
+use Vusys\Bitemporal\Tests\Fixtures\Models\Product;
+use Vusys\Bitemporal\Tests\Fixtures\Models\ProductPrice;
+use Vusys\Bitemporal\Tests\TestCase;
 
 abstract class IntegrationTestCase extends TestCase
 {

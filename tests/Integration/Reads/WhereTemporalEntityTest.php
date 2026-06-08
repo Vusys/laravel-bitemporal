@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Tests\Integration\Reads;
+namespace Vusys\Bitemporal\Tests\Integration\Reads;
 
-use Bitemporal\Exceptions\TemporalConfigurationException;
-use Bitemporal\Tests\Fixtures\Models\ProductPrice;
-use Bitemporal\Tests\Integration\IntegrationTestCase;
+use Vusys\Bitemporal\Exceptions\TemporalConfigurationException;
+use Vusys\Bitemporal\Tests\Fixtures\Models\ProductPrice;
+use Vusys\Bitemporal\Tests\Integration\IntegrationTestCase;
 
 final class WhereTemporalEntityTest extends IntegrationTestCase
 {

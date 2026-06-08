@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Tests\Unit\Support;
+namespace Vusys\Bitemporal\Tests\Unit\Support;
 
-use Bitemporal\Support\AttributeEquality;
-use Bitemporal\Tests\TestCase;
 use Carbon\CarbonImmutable;
+use Vusys\Bitemporal\Support\AttributeEquality;
+use Vusys\Bitemporal\Tests\TestCase;
 
 final class AttributeEqualityTest extends TestCase
 {

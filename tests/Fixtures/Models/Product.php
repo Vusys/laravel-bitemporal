@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Tests\Fixtures\Models;
+namespace Vusys\Bitemporal\Tests\Fixtures\Models;
 
-use Bitemporal\Concerns\HasBitemporalRelations;
-use Bitemporal\Relations\BitemporalMany;
-use Bitemporal\Relations\BitemporalOne;
 use Illuminate\Database\Eloquent\Model;
+use Vusys\Bitemporal\Concerns\HasBitemporalRelations;
+use Vusys\Bitemporal\Relations\BitemporalMany;
+use Vusys\Bitemporal\Relations\BitemporalOne;
 
 /**
  * @property int $id

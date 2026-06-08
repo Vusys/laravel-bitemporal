@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Tests\Fixtures\Models;
+namespace Vusys\Bitemporal\Tests\Fixtures\Models;
 
-use Bitemporal\Bitemporal;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Vusys\Bitemporal\Bitemporal;
 
 /**
  * @property int $id

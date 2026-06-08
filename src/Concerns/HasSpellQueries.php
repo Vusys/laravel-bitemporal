@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Concerns;
+namespace Vusys\Bitemporal\Concerns;
 
-use Bitemporal\BitemporalBuilder;
 use Carbon\CarbonInterface;
+use Vusys\Bitemporal\BitemporalBuilder;
 
 /**
- * Period range predicates for the temporal builder. Each `valid*` method
+ * Spell range predicates for the temporal builder. Each `valid*` method
  * operates on the valid period; each `recorded*` method on the recorded period
  * (and requires a bitemporal model). All bounds are half-open `[from, to)`;
  * a null upper bound means "open ended" (+infinity).
  *
  * @phpstan-require-extends BitemporalBuilder
  */
-trait HasPeriodQueries
+trait HasSpellQueries
 {
     public function validIntersects(CarbonInterface|string $from, CarbonInterface|string|null $to = null): static
     {

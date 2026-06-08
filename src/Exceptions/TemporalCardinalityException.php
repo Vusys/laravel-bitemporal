@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Exceptions;
+namespace Vusys\Bitemporal\Exceptions;
 
 final class TemporalCardinalityException extends TemporalException
 {

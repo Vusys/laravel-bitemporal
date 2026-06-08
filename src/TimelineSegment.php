@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal;
+namespace Vusys\Bitemporal;
 
-use Bitemporal\Support\AttributeEquality;
+use Vusys\Bitemporal\Support\AttributeEquality;
 
 /**
- * A Period plus a payload — a snapshot of one row's attributes for one
+ * A Spell plus a payload — a snapshot of one row's attributes for one
  * bitemporal segment.
  */
 final readonly class TimelineSegment
@@ -16,8 +16,8 @@ final readonly class TimelineSegment
      * @param  array<string, mixed>  $attributes
      */
     public function __construct(
-        public Period $validPeriod,
-        public ?Period $recordedPeriod,
+        public Spell $validSpell,
+        public ?Spell $recordedSpell,
         public array $attributes,
         public bool $isRetraction = false,
     ) {}
@@ -44,9 +44,9 @@ final readonly class TimelineSegment
         return array_all($dimensionColumns, fn ($column): bool => AttributeEquality::equals($this->attributes[$column] ?? null, $other->attributes[$column] ?? null));
     }
 
-    public function withValidPeriod(Period $period): self
+    public function withValidSpell(Spell $spell): self
     {
-        return new self($period, $this->recordedPeriod, $this->attributes, $this->isRetraction);
+        return new self($spell, $this->recordedSpell, $this->attributes, $this->isRetraction);
     }
 
     /**
@@ -54,7 +54,7 @@ final readonly class TimelineSegment
      */
     public function withAttributes(array $attributes): self
     {
-        return new self($this->validPeriod, $this->recordedPeriod, $attributes, $this->isRetraction);
+        return new self($this->validSpell, $this->recordedSpell, $attributes, $this->isRetraction);
     }
 
     public function equals(TimelineSegment $other): bool
@@ -63,11 +63,11 @@ final readonly class TimelineSegment
             return false;
         }
 
-        if (! $this->validPeriod->equals($other->validPeriod)) {
+        if (! $this->validSpell->equals($other->validSpell)) {
             return false;
         }
 
-        if (! $this->recordedPeriodsEqual($this->recordedPeriod, $other->recordedPeriod)) {
+        if (! $this->recordedSpellsEqual($this->recordedSpell, $other->recordedSpell)) {
             return false;
         }
 
@@ -82,12 +82,12 @@ final readonly class TimelineSegment
     {
         $row = $this->attributes;
 
-        $row[$columnMap['valid_from']] = $this->validPeriod->from;
-        $row[$columnMap['valid_to']] = $this->validPeriod->to;
+        $row[$columnMap['valid_from']] = $this->validSpell->from;
+        $row[$columnMap['valid_to']] = $this->validSpell->to;
 
-        if ($this->recordedPeriod instanceof Period) {
-            $row[$columnMap['recorded_from']] = $this->recordedPeriod->from;
-            $row[$columnMap['recorded_to']] = $this->recordedPeriod->to;
+        if ($this->recordedSpell instanceof Spell) {
+            $row[$columnMap['recorded_from']] = $this->recordedSpell->from;
+            $row[$columnMap['recorded_to']] = $this->recordedSpell->to;
         }
 
         $row[$columnMap['is_retraction']] = $this->isRetraction;
@@ -96,22 +96,22 @@ final readonly class TimelineSegment
     }
 
     /**
-     * @return array{valid_period: array{from: ?string, to: ?string}, recorded_period: array{from: ?string, to: ?string}|null, attributes: array<string, mixed>, is_retraction: bool}
+     * @return array{valid_spell: array{from: ?string, to: ?string}, recorded_spell: array{from: ?string, to: ?string}|null, attributes: array<string, mixed>, is_retraction: bool}
      */
     public function toArray(): array
     {
         return [
-            'valid_period' => $this->validPeriod->toArray(),
-            'recorded_period' => $this->recordedPeriod?->toArray(),
+            'valid_spell' => $this->validSpell->toArray(),
+            'recorded_spell' => $this->recordedSpell?->toArray(),
             'attributes' => $this->attributes,
             'is_retraction' => $this->isRetraction,
         ];
     }
 
-    private function recordedPeriodsEqual(?Period $a, ?Period $b): bool
+    private function recordedSpellsEqual(?Spell $a, ?Spell $b): bool
     {
-        if (! $a instanceof Period || ! $b instanceof Period) {
-            return ! $a instanceof Period && ! $b instanceof Period;
+        if (! $a instanceof Spell || ! $b instanceof Spell) {
+            return ! $a instanceof Spell && ! $b instanceof Spell;
         }
 
         return $a->equals($b);

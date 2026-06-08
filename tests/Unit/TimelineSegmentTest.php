@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Tests\Unit;
+namespace Vusys\Bitemporal\Tests\Unit;
 
-use Bitemporal\Period;
-use Bitemporal\Tests\TestCase;
-use Bitemporal\TimelineSegment;
 use Carbon\CarbonImmutable;
+use Vusys\Bitemporal\Spell;
+use Vusys\Bitemporal\Tests\TestCase;
+use Vusys\Bitemporal\TimelineSegment;
 
 final class TimelineSegmentTest extends TestCase
 {
@@ -21,7 +21,7 @@ final class TimelineSegmentTest extends TestCase
         bool $retraction = false,
     ): TimelineSegment {
         return new TimelineSegment(
-            Period::between($from, $to),
+            Spell::between($from, $to),
             null,
             $attributes,
             $retraction,
@@ -34,7 +34,7 @@ final class TimelineSegmentTest extends TestCase
         $this->assertTrue($this->segment('2026-01-01', '2026-06-01', [], true)->isAntiRow());
     }
 
-    public function test_has_same_attributes_ignores_period(): void
+    public function test_has_same_attributes_ignores_spell(): void
     {
         $a = $this->segment('2026-01-01', '2026-06-01');
         $b = $this->segment('2026-06-01', '2026-09-01');
@@ -70,12 +70,12 @@ final class TimelineSegmentTest extends TestCase
         $this->assertTrue($a->hasSameDimensionsAs($c, []));
     }
 
-    public function test_with_valid_period(): void
+    public function test_with_valid_spell(): void
     {
         $segment = $this->segment('2026-01-01', '2026-06-01');
-        $moved = $segment->withValidPeriod(Period::between('2026-02-01', '2026-07-01'));
+        $moved = $segment->withValidSpell(Spell::between('2026-02-01', '2026-07-01'));
 
-        $this->assertTrue($moved->validPeriod->equals(Period::between('2026-02-01', '2026-07-01')));
+        $this->assertTrue($moved->validSpell->equals(Spell::between('2026-02-01', '2026-07-01')));
         $this->assertSame($segment->attributes, $moved->attributes);
         $this->assertSame($segment->isRetraction, $moved->isRetraction);
     }
@@ -86,44 +86,44 @@ final class TimelineSegmentTest extends TestCase
         $changed = $segment->withAttributes(['amount' => 1200]);
 
         $this->assertSame(['amount' => 1200], $changed->attributes);
-        $this->assertTrue($segment->validPeriod->equals($changed->validPeriod));
+        $this->assertTrue($segment->validSpell->equals($changed->validSpell));
     }
 
     public function test_equals_considers_all_fields(): void
     {
         $base = new TimelineSegment(
-            Period::between('2026-01-01', '2026-06-01'),
-            Period::between('2026-01-01', null),
+            Spell::between('2026-01-01', '2026-06-01'),
+            Spell::between('2026-01-01', null),
             ['amount' => 1000],
         );
 
         $this->assertTrue($base->equals(new TimelineSegment(
-            Period::between('2026-01-01', '2026-06-01'),
-            Period::between('2026-01-01', null),
+            Spell::between('2026-01-01', '2026-06-01'),
+            Spell::between('2026-01-01', null),
             ['amount' => 1000],
         )));
 
         $this->assertFalse($base->equals(new TimelineSegment(
-            Period::between('2026-01-01', '2026-07-01'),
-            Period::between('2026-01-01', null),
+            Spell::between('2026-01-01', '2026-07-01'),
+            Spell::between('2026-01-01', null),
             ['amount' => 1000],
         )));
 
         $this->assertFalse($base->equals(new TimelineSegment(
-            Period::between('2026-01-01', '2026-06-01'),
+            Spell::between('2026-01-01', '2026-06-01'),
             null,
             ['amount' => 1000],
         )));
 
         $this->assertFalse($base->equals(new TimelineSegment(
-            Period::between('2026-01-01', '2026-06-01'),
-            Period::between('2026-01-01', null),
+            Spell::between('2026-01-01', '2026-06-01'),
+            Spell::between('2026-01-01', null),
             ['amount' => 1200],
         )));
 
         $this->assertFalse($base->equals(new TimelineSegment(
-            Period::between('2026-01-01', '2026-06-01'),
-            Period::between('2026-01-01', null),
+            Spell::between('2026-01-01', '2026-06-01'),
+            Spell::between('2026-01-01', null),
             ['amount' => 1000],
             true,
         )));
@@ -140,8 +140,8 @@ final class TimelineSegmentTest extends TestCase
         ];
 
         $segment = new TimelineSegment(
-            Period::between('2026-01-01', '2026-06-01'),
-            Period::between('2026-01-01', null),
+            Spell::between('2026-01-01', '2026-06-01'),
+            Spell::between('2026-01-01', null),
             ['amount' => 1000, 'currency' => 'GBP'],
         );
 
@@ -177,7 +177,7 @@ final class TimelineSegmentTest extends TestCase
     public function test_to_array(): void
     {
         $segment = new TimelineSegment(
-            Period::between('2026-01-01', '2026-06-01'),
+            Spell::between('2026-01-01', '2026-06-01'),
             null,
             ['amount' => 1000],
             false,
@@ -186,8 +186,8 @@ final class TimelineSegmentTest extends TestCase
         $array = $segment->toArray();
 
         $this->assertSame(['amount' => 1000], $array['attributes']);
-        $this->assertNull($array['recorded_period']);
+        $this->assertNull($array['recorded_spell']);
         $this->assertFalse($array['is_retraction']);
-        $this->assertArrayHasKey('from', $array['valid_period']);
+        $this->assertArrayHasKey('from', $array['valid_spell']);
     }
 }

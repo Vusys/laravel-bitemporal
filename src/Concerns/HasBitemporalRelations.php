@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Concerns;
+namespace Vusys\Bitemporal\Concerns;
 
-use Bitemporal\Exceptions\TemporalConfigurationException;
-use Bitemporal\Relations\BitemporalMany;
-use Bitemporal\Relations\BitemporalOne;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Vusys\Bitemporal\Exceptions\TemporalConfigurationException;
+use Vusys\Bitemporal\Relations\BitemporalMany;
+use Vusys\Bitemporal\Relations\BitemporalOne;
 
 /**
  * Relation factories for a parent (entity) model.

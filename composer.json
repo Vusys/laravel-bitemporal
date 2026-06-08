@@ -20,14 +20,14 @@
         "rector/rector": "^2.0"
     },
     "autoload": {
-        "psr-4": { "Bitemporal\\": "src/" }
+        "psr-4": { "Vusys\\Bitemporal\\": "src/" }
     },
     "autoload-dev": {
-        "psr-4": { "Bitemporal\\Tests\\": "tests/" }
+        "psr-4": { "Vusys\\Bitemporal\\Tests\\": "tests/" }
     },
     "extra": {
         "laravel": {
-            "providers": ["Bitemporal\\BitemporalServiceProvider"]
+            "providers": ["Vusys\\Bitemporal\\BitemporalServiceProvider"]
         }
     },
     "minimum-stability": "stable",

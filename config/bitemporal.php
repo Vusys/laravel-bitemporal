@@ -11,7 +11,7 @@ return [
         'is_retraction' => 'is_retraction',
     ],
 
-    'periods' => [
+    'spells' => [
         'bounds' => '[)',
         'null_end_means_infinity' => true,
         'timezone' => 'UTC',

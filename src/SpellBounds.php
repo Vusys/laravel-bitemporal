@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal;
+namespace Vusys\Bitemporal;
 
-enum PeriodBounds: string
+enum SpellBounds: string
 {
     case ClosedOpen = '[)';
     case OpenClosed = '(]';

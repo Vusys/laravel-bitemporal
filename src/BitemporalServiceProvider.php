@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal;
+namespace Vusys\Bitemporal;
 
 use Illuminate\Support\ServiceProvider;
 

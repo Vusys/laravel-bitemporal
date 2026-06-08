@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Concerns;
+namespace Vusys\Bitemporal\Concerns;
 
-use Bitemporal\Support\TemporalEntityMetadata;
+use Vusys\Bitemporal\Support\TemporalEntityMetadata;
 
 /**
  * Resolves the temporal column names, dimensions, and recorded-time flag for a

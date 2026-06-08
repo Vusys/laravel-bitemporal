@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Casts;
+namespace Vusys\Bitemporal\Casts;
 
-use Bitemporal\Period;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Illuminate\Database\Eloquent\Model;
+use Vusys\Bitemporal\Spell;
 
 /**
- * Synthetic Period cast over two datetime columns, e.g.
- * `'valid_period' => CompositePeriodCast::class.':valid_from,valid_to'`.
+ * Synthetic Spell cast over two datetime columns, e.g.
+ * `'valid_spell' => CompositeSpellCast::class.':valid_from,valid_to'`.
  *
- * @implements CastsAttributes<Period, Period>
+ * @implements CastsAttributes<Spell, Spell>
  */
-final readonly class CompositePeriodCast implements CastsAttributes
+final readonly class CompositeSpellCast implements CastsAttributes
 {
     public function __construct(
         private string $fromColumn = 'valid_from',
@@ -26,9 +26,9 @@ final readonly class CompositePeriodCast implements CastsAttributes
     /**
      * @param  array<string, mixed>  $attributes
      */
-    public function get(Model $model, string $key, mixed $value, array $attributes): Period
+    public function get(Model $model, string $key, mixed $value, array $attributes): Spell
     {
-        return new Period(
+        return new Spell(
             $this->bound($attributes[$this->fromColumn] ?? null),
             $this->bound($attributes[$this->toColumn] ?? null),
         );
@@ -57,7 +57,7 @@ final readonly class CompositePeriodCast implements CastsAttributes
      */
     public function set(Model $model, string $key, mixed $value, array $attributes): array
     {
-        if (! $value instanceof Period) {
+        if (! $value instanceof Spell) {
             return [];
         }
 
