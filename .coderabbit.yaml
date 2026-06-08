@@ -1,0 +1,23 @@
+language: en-GB
+reviews:
+  profile: assertive
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  path_instructions:
+    - path: "src/**/*.php"
+      instructions: >-
+        Enforce these package conventions:
+        - Every file declares strict_types=1.
+        - No PHPStan baseline and no @phpstan-ignore annotations; flag both as violations.
+        - No code comments unless WHY is non-obvious; flag comments that restate WHAT.
+        - Array validation, not pipe strings: ['required', 'integer'] not 'required|integer'.
+        - Public APIs are stable post-1.0; flag renames or removals of public surface.
+    - path: "tests/**/*.php"
+      instructions: >-
+        Tests follow the same strict_types and style conventions.
+        Property tests carry the #[Group('property')] attribute.
+chat:
+  auto_reply: true

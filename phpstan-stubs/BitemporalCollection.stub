@@ -1,0 +1,7 @@
+<?php
+
+// Declares BitemporalCollection helpers (keyByTemporalEntityId,
+// keyByTemporalEntityReference, groupByTemporalEntity, groupByTemporalEntityType)
+// so consumers get accurate return types.
+//
+// Populated when the collection lands (Phase 2 / Phase 3 / Phase 8).

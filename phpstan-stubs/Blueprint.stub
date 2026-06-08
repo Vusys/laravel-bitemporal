@@ -1,0 +1,8 @@
+<?php
+
+// Declares the package's Blueprint macros (validPeriod, recordedPeriod,
+// temporalPeriod, bitemporalPeriods, timestampRange, preventTemporalOverlaps,
+// preventBitemporalOverlaps, bitemporalForeignFor, bitemporalMorphsFor) so that
+// user projects do not see Larastan noise on $table->bitemporalPeriods() calls.
+//
+// Populated when the migration macros land (Phase 2 / Phase 7 / Phase 12).

@@ -1,0 +1,20 @@
+{
+    $schema: "vendor/infection/infection/resources/schema.json",
+    source: { directories: ["src"] },
+    timeout: 30,
+    logs: {
+        text: "build/infection/infection.log",
+        html: "build/infection/infection.html",
+        json: "build/infection/infection.json",
+        summary: "build/infection/summary.log",
+        github: true,
+        stryker: { report: "master" },
+    },
+    mutators: { "@default": true },
+    // Thresholds start at 0; ratchet up after first full run.
+    // Target post-1.0: minMsi=85, minCoveredMsi=90.
+    minMsi: 0,
+    minCoveredMsi: 0,
+    testFramework: "phpunit",
+    tmpDir: "build/infection",
+}

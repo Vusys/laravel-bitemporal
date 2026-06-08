@@ -1,0 +1,20 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - src
+        - tests
+    level: 9
+    reportUnmatchedIgnoredErrors: false
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+    stubFiles:
+        - phpstan-stubs/Blueprint.stub
+        - phpstan-stubs/BitemporalRelation.stub
+        - phpstan-stubs/BitemporalCollection.stub
+    ignoreErrors:
+        # env() is legitimate in test bootstrap; config caching does not apply.
+        - identifier: larastan.noEnvCallsOutsideOfConfig
+          paths:
+              - tests/

@@ -1,0 +1,32 @@
+name: static-analysis
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  analyse:
+    runs-on: ubuntu-latest
+    name: Larastan · Pint · Rector
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: PHPStan
+        run: composer analyse
+
+      - name: Pint
+        run: composer pint:check
+
+      - name: Rector
+        run: composer rector:check

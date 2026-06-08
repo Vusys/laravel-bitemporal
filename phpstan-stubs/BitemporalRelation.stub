@@ -1,0 +1,6 @@
+<?php
+
+// Declares BitemporalMany / BitemporalOne / BitemporalBelongsToMany public
+// signatures so consumers get accurate types on relation methods.
+//
+// Populated when the relations land (Phase 2 / Phase 8).
