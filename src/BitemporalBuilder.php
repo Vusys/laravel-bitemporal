@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Bitemporal;
 
+use Bitemporal\Concerns\HasPeriodQueries;
 use Bitemporal\Exceptions\TemporalCardinalityException;
 use Bitemporal\Exceptions\TemporalConfigurationException;
 use Bitemporal\Support\TemporalEntityMetadata;
@@ -26,6 +27,8 @@ use Illuminate\Support\Collection as SupportCollection;
  */
 class BitemporalBuilder extends Builder
 {
+    use HasPeriodQueries;
+
     private ?TemporalEntityMetadata $temporalMeta = null;
 
     /**
@@ -92,6 +95,18 @@ class BitemporalBuilder extends Builder
     }
 
     /**
+     * @param  class-string<Model>  $class
+     * @param  array<int, int|string>  $ids
+     */
+    public function whereTemporalEntityOf(string $class, array $ids): static
+    {
+        unset($class);
+        $this->whereIn($this->qualify($this->temporalForeignKey()), $ids);
+
+        return $this;
+    }
+
+    /**
      * @param  array<int, string>|string  $columns
      * @return TModel
      */
@@ -121,7 +136,7 @@ class BitemporalBuilder extends Builder
         return $this;
     }
 
-    private function instant(CarbonInterface|string $date): string
+    protected function instant(CarbonInterface|string $date): string
     {
         $timezone = config('bitemporal.periods.timezone', 'UTC');
 
@@ -130,12 +145,12 @@ class BitemporalBuilder extends Builder
             ->format('Y-m-d H:i:s.u');
     }
 
-    private function qualify(string $column): string
+    protected function qualify(string $column): string
     {
         return $this->getModel()->getTable().'.'.$column;
     }
 
-    private function temporalMetadata(): TemporalEntityMetadata
+    protected function temporalMetadata(): TemporalEntityMetadata
     {
         if ($this->temporalMeta instanceof TemporalEntityMetadata) {
             return $this->temporalMeta;
@@ -150,7 +165,7 @@ class BitemporalBuilder extends Builder
         return $this->temporalMeta = $model->temporalMetadata();
     }
 
-    private function requireRecordedTime(string $method): TemporalEntityMetadata
+    protected function requireRecordedTime(string $method): TemporalEntityMetadata
     {
         $meta = $this->temporalMetadata();
 
