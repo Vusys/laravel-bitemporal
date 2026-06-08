@@ -6,6 +6,7 @@ namespace Vusys\Bitemporal\Relations;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Vusys\Bitemporal\Concerns\HasTemporalWrites;
 use Vusys\Bitemporal\Exceptions\TemporalCardinalityException;
 
 /**
@@ -20,6 +21,8 @@ use Vusys\Bitemporal\Exceptions\TemporalCardinalityException;
  */
 class BitemporalOne extends HasOne
 {
+    use HasTemporalWrites;
+
     private bool $requirePresence = false;
 
     public function requirePresence(): static
