@@ -3,6 +3,14 @@
 declare(strict_types=1);
 
 return [
+    'columns' => [
+        'valid_from' => 'valid_from',
+        'valid_to' => 'valid_to',
+        'recorded_from' => 'recorded_from',
+        'recorded_to' => 'recorded_to',
+        'is_retraction' => 'is_retraction',
+    ],
+
     'periods' => [
         'bounds' => '[)',
         'null_end_means_infinity' => true,
