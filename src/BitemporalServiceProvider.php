@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Vusys\Bitemporal;
 
 use Illuminate\Support\ServiceProvider;
+use Vusys\Bitemporal\Locking\ParentRowLocker;
+use Vusys\Bitemporal\Locking\WriteLocker;
 
 final class BitemporalServiceProvider extends ServiceProvider
 {
@@ -12,6 +14,8 @@ final class BitemporalServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/bitemporal.php', 'bitemporal');
+
+        $this->app->bindIf(WriteLocker::class, ParentRowLocker::class);
     }
 
     public function boot(): void

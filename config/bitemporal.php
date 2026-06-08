@@ -17,4 +17,13 @@ return [
         'timezone' => 'UTC',
         'allow_zero_length' => false,
     ],
+
+    'writes' => [
+        'compact_adjacent_segments' => true,
+        'compaction_excluded_columns' => ['created_at', 'updated_at'],
+        'future_validity_tolerance_ms' => 1000,
+        'fire_eloquent_events' => false,
+        'lock_strategy' => 'parent_row',
+        'parent_lock_timeout_ms' => 5000,
+    ],
 ];

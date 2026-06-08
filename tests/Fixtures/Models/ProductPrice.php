@@ -31,6 +31,13 @@ class ProductPrice extends Model
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
     /**
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'amount' => 'integer',
+    ];
+
+    /**
      * @return BelongsTo<Product, $this>
      */
     public function product(): BelongsTo
