@@ -15,4 +15,19 @@ final class TemporalMissingDimensionException extends TemporalException
     {
         return new self("attribute '{$column}' is writer-managed and must not appear in the attributes payload");
     }
+
+    public static function incomplete(string $column): self
+    {
+        return new self("temporal write is missing the required dimension '{$column}'; supply it via forDimensions()");
+    }
+
+    public static function unknownDimension(string $column): self
+    {
+        return new self("'{$column}' is not a declared temporal dimension");
+    }
+
+    public static function conflict(string $column): self
+    {
+        return new self("dimension '{$column}' is set via forDimensions() and must not be given a different value in attributes");
+    }
 }

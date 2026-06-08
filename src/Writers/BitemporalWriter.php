@@ -29,6 +29,7 @@ use Vusys\Bitemporal\Exceptions\TemporalMissingDimensionException;
 use Vusys\Bitemporal\Exceptions\TemporalOverlapException;
 use Vusys\Bitemporal\Locking\WriteLocker;
 use Vusys\Bitemporal\Spell;
+use Vusys\Bitemporal\Support\DimensionValidator;
 use Vusys\Bitemporal\Support\TemporalEntityMetadata;
 use Vusys\Bitemporal\Timeline;
 use Vusys\Bitemporal\TimelineSegment;
@@ -63,6 +64,7 @@ final readonly class BitemporalWriter
     {
         $from = $this->instant($validFrom);
         $this->assertForwardDated($from);
+        $attributes = DimensionValidator::reconcileAttributes($this->meta->dimensions, $this->dimensions, $attributes);
 
         $committed = $this->run(
             fn (Timeline $current): Spell => $this->forwardWindow($current, $from),
@@ -89,6 +91,7 @@ final readonly class BitemporalWriter
             $validFrom === null ? null : $this->instant($validFrom),
             $validTo === null ? null : $this->instant($validTo),
         );
+        $attributes = DimensionValidator::reconcileAttributes($this->meta->dimensions, $this->dimensions, $attributes);
 
         $committed = $this->run(
             static fn (): Spell => $window,
@@ -205,6 +208,7 @@ final readonly class BitemporalWriter
     private function run(\Closure $windowResolver, \Closure $transform, array $attributes, ?bool $compact, \Closure $starting, \Closure $committed): TemporalWriteCommitted
     {
         $this->assertNoForbiddenAttributes($attributes);
+        DimensionValidator::assertComplete($this->meta->dimensions, $this->dimensions);
 
         $result = $this->connection()->transaction(function () use ($windowResolver, $transform, $attributes, $compact, $starting, $committed): TemporalWriteCommitted {
             $this->locker->lockFor($this->entity, $this->dimensions, $this->parentLockTimeout());
@@ -448,6 +452,10 @@ final readonly class BitemporalWriter
         $row->setAttribute($this->meta->validTo, $segment->validSpell->to);
         $row->setAttribute($this->meta->isRetraction, $segment->isRetraction);
 
+        foreach ($this->dimensions as $column => $value) {
+            $row->setAttribute($column, $value);
+        }
+
         if ($this->meta->tracksRecordedTime) {
             $row->setAttribute($this->meta->recordedFrom, $recordedAt);
             $row->setAttribute($this->meta->recordedTo, null);
@@ -532,6 +540,7 @@ final readonly class BitemporalWriter
             $this->meta->recordedFrom,
             $this->meta->recordedTo,
             $this->meta->isRetraction,
+            ...$this->meta->dimensions,
             ...(is_array($excluded) ? array_values(array_filter($excluded, is_string(...))) : []),
         ];
     }
@@ -548,6 +557,16 @@ final readonly class BitemporalWriter
         }
 
         $query->where($this->foreignKey, $this->entity->getKey());
+
+        foreach ($this->dimensions as $column => $value) {
+            if ($value === null) {
+                $query->whereNull($column);
+
+                continue;
+            }
+
+            $query->where($column, '=', $value);
+        }
 
         return $query;
     }
