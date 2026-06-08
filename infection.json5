@@ -11,10 +11,13 @@
         stryker: { report: "master" },
     },
     mutators: { "@default": true },
-    // Thresholds start at 0; ratchet up after first full run.
+    // Ratcheted after Phase 1 (value objects: 100% line coverage, ~95% MSI on
+    // the four value-object files; ~93% MSI across the package on the default
+    // suite). Held at 50 because the algorithm/writer paths land in Phase 4 and
+    // dilute the package MSI until their tests arrive. Ratchet is one-way up.
     // Target post-1.0: minMsi=85, minCoveredMsi=90.
-    minMsi: 0,
-    minCoveredMsi: 0,
+    minMsi: 50,
+    minCoveredMsi: 50,
     testFramework: "phpunit",
     tmpDir: "build/infection",
 }
