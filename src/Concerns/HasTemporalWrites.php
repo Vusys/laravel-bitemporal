@@ -34,18 +34,20 @@ trait HasTemporalWrites
 {
     /**
      * @param  array<string, mixed>  $attributes
+     * @param  array<string, mixed>|null  $expectedCurrentAttributes
      */
-    public function changeEffectiveFrom(array $attributes, CarbonInterface|string $validFrom, ?bool $compact = null): TemporalChangeCommitted
+    public function changeEffectiveFrom(array $attributes, CarbonInterface|string $validFrom, ?bool $compact = null, ?array $expectedCurrentAttributes = null): TemporalChangeCommitted
     {
-        return $this->temporalWriter()->changeEffectiveFrom($attributes, $validFrom, $compact);
+        return $this->temporalWriter()->changeEffectiveFrom($attributes, $validFrom, $compact, $expectedCurrentAttributes);
     }
 
     /**
      * @param  array<string, mixed>  $attributes
+     * @param  array<string, mixed>|null  $expectedCurrentAttributes
      */
-    public function correct(array $attributes, CarbonInterface|string|null $validFrom = null, CarbonInterface|string|null $validTo = null, ?bool $compact = null): TemporalCorrectionCommitted
+    public function correct(array $attributes, CarbonInterface|string|null $validFrom = null, CarbonInterface|string|null $validTo = null, ?bool $compact = null, ?array $expectedCurrentAttributes = null): TemporalCorrectionCommitted
     {
-        return $this->temporalWriter()->correct($attributes, $validFrom, $validTo, $compact);
+        return $this->temporalWriter()->correct($attributes, $validFrom, $validTo, $compact, $expectedCurrentAttributes);
     }
 
     public function retract(CarbonInterface|string $validFrom, CarbonInterface|string|null $validTo = null, ?bool $compact = null): TemporalRetractionCommitted

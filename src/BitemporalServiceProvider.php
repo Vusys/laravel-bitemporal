@@ -10,6 +10,7 @@ use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\ServiceProvider;
 use Vusys\Bitemporal\Lens\AsOfJobListener;
 use Vusys\Bitemporal\Lens\LensStack;
+use Vusys\Bitemporal\Locking\AdvisoryLocker;
 use Vusys\Bitemporal\Locking\ParentRowLocker;
 use Vusys\Bitemporal\Locking\WriteLocker;
 
@@ -20,7 +21,15 @@ final class BitemporalServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/bitemporal.php', 'bitemporal');
 
-        $this->app->bindIf(WriteLocker::class, ParentRowLocker::class);
+        // 'custom' leaves WriteLocker unbound for the application to provide.
+        $strategy = config('bitemporal.writes.lock_strategy', 'parent_row');
+
+        if ($strategy === 'advisory') {
+            $this->app->bindIf(WriteLocker::class, AdvisoryLocker::class);
+        } elseif ($strategy !== 'custom') {
+            $this->app->bindIf(WriteLocker::class, ParentRowLocker::class);
+        }
+
         $this->app->singleton(LensStack::class);
     }
 
