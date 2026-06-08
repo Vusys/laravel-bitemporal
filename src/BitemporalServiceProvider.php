@@ -8,6 +8,8 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\ServiceProvider;
+use Vusys\Bitemporal\Console\Commands\MakeBitemporalModelCommand;
+use Vusys\Bitemporal\Console\Commands\WarmGuardsCommand;
 use Vusys\Bitemporal\Database\TemporalBlueprintMacros;
 use Vusys\Bitemporal\Lens\AsOfJobListener;
 use Vusys\Bitemporal\Lens\LensStack;
@@ -43,6 +45,11 @@ final class BitemporalServiceProvider extends ServiceProvider
         $events->listen(JobProcessed::class, [AsOfJobListener::class, 'handleProcessed']);
 
         if ($this->app->runningInConsole()) {
+            $this->commands([
+                MakeBitemporalModelCommand::class,
+                WarmGuardsCommand::class,
+            ]);
+
             $this->publishes([
                 __DIR__.'/../config/bitemporal.php' => $this->app->configPath('bitemporal.php'),
             ], 'bitemporal-config');

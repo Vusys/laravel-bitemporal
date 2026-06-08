@@ -1,0 +1,28 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Vusys\Bitemporal\Bitemporal;
+
+class {{ class }} extends Model
+{
+    use Bitemporal;
+
+    protected $guarded = [];
+
+    protected $dateFormat = 'Y-m-d H:i:s.u';
+
+    /**
+     * The entity this temporal model belongs to.
+     *
+     * @return BelongsTo<{{ entity }}, $this>
+     */
+    public function temporalEntity(): BelongsTo
+    {
+        return $this->belongsTo({{ entity }}::class);
+    }
+}
