@@ -8,6 +8,7 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\ServiceProvider;
+use Vusys\Bitemporal\Database\TemporalBlueprintMacros;
 use Vusys\Bitemporal\Lens\AsOfJobListener;
 use Vusys\Bitemporal\Lens\LensStack;
 use Vusys\Bitemporal\Locking\AdvisoryLocker;
@@ -35,6 +36,8 @@ final class BitemporalServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        TemporalBlueprintMacros::register();
+
         $events = $this->app->make(Dispatcher::class);
         $events->listen(JobProcessing::class, [AsOfJobListener::class, 'handleProcessing']);
         $events->listen(JobProcessed::class, [AsOfJobListener::class, 'handleProcessed']);
