@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Concerns;
+namespace Vusys\Bitemporal\Concerns;
 
 /**
  * Auto-applies immutable_datetime casts to the period columns and a boolean

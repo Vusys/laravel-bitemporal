@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Collections;
+namespace Vusys\Bitemporal\Collections;
 
-use Bitemporal\Exceptions\TemporalConfigurationException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Collection as SupportCollection;
+use Vusys\Bitemporal\Exceptions\TemporalConfigurationException;
 
 /**
  * Collection returned by temporal queries. Adds entity-keying and grouping

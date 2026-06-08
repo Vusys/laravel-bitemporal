@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal;
+namespace Vusys\Bitemporal;
 
-use Bitemporal\Exceptions\TemporalInvalidPeriodException;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Carbon\CarbonInterval;
+use Vusys\Bitemporal\Exceptions\TemporalInvalidSpellException;
 
 /**
  * A half-open `[from, to)` interval. Either bound may be null for "unbounded
  * on that side" — the package's representation of infinity.
  */
-final readonly class Period implements \Stringable
+final readonly class Spell implements \Stringable
 {
     public function __construct(
         public ?CarbonImmutable $from,
@@ -21,11 +21,11 @@ final readonly class Period implements \Stringable
     ) {
         if ($from instanceof CarbonImmutable && $to instanceof CarbonImmutable) {
             if ($from->greaterThan($to)) {
-                throw TemporalInvalidPeriodException::fromAfterTo();
+                throw TemporalInvalidSpellException::fromAfterTo();
             }
 
             if ($from->equalTo($to) && ! $this->zeroLengthAllowed()) {
-                throw TemporalInvalidPeriodException::zeroLength();
+                throw TemporalInvalidSpellException::zeroLength();
             }
         }
     }
@@ -57,15 +57,15 @@ final readonly class Period implements \Stringable
     }
 
     /**
-     * Construct a half-open period. The optional $bounds parameter is an
+     * Construct a half-open spell. The optional $bounds parameter is an
      * inbound-conversion hint only; it is normalised to [) at construction.
-     * The constructed Period has no bounds field — every predicate operates
+     * The constructed Spell has no bounds field — every predicate operates
      * in [) unconditionally.
      */
     public static function between(
         CarbonInterface|string $from,
         CarbonInterface|string|null $to,
-        PeriodBounds $bounds = PeriodBounds::ClosedOpen,
+        SpellBounds $bounds = SpellBounds::ClosedOpen,
     ): self {
         $normalisedFrom = self::parse($from);
         $normalisedTo = self::parseNullable($to);
@@ -118,7 +118,7 @@ final readonly class Period implements \Stringable
         return $lowerOk && $upperOk;
     }
 
-    public function containsPeriod(Period $other): bool
+    public function containsSpell(Spell $other): bool
     {
         $lowerOk = ! $this->from instanceof CarbonImmutable
             || ($other->from instanceof CarbonImmutable && $this->from->lessThanOrEqualTo($other->from));
@@ -128,7 +128,7 @@ final readonly class Period implements \Stringable
         return $lowerOk && $upperOk;
     }
 
-    public function intersects(Period $other): bool
+    public function intersects(Spell $other): bool
     {
         $lower = $this->laterLowerBound($this->from, $other->from);
         $upper = $this->earlierUpperBound($this->to, $other->to);
@@ -140,12 +140,12 @@ final readonly class Period implements \Stringable
         return $lower->lessThan($upper);
     }
 
-    public function containedBy(Period $other): bool
+    public function containedBy(Spell $other): bool
     {
-        return $other->containsPeriod($this);
+        return $other->containsSpell($this);
     }
 
-    public function intersect(Period $other): ?Period
+    public function intersect(Spell $other): ?Spell
     {
         if (! $this->intersects($other)) {
             return null;
@@ -158,13 +158,13 @@ final readonly class Period implements \Stringable
     }
 
     /**
-     * @return array<int, Period>
+     * @return array<int, Spell>
      */
-    public function subtract(Period $other): array
+    public function subtract(Spell $other): array
     {
         $overlap = $this->intersect($other);
 
-        if (! $overlap instanceof Period) {
+        if (! $overlap instanceof Spell) {
             return [$this];
         }
 
@@ -181,10 +181,10 @@ final readonly class Period implements \Stringable
         return $pieces;
     }
 
-    public function merge(Period $other): Period
+    public function merge(Spell $other): Spell
     {
         if (! $this->intersects($other) && ! $this->isAdjacent($other)) {
-            throw TemporalInvalidPeriodException::mergeDisjoint();
+            throw TemporalInvalidSpellException::mergeDisjoint();
         }
 
         return new self(
@@ -193,22 +193,22 @@ final readonly class Period implements \Stringable
         );
     }
 
-    public function meets(Period $other): bool
+    public function meets(Spell $other): bool
     {
         return $this->to instanceof CarbonImmutable && $other->from instanceof CarbonImmutable && $this->to->equalTo($other->from);
     }
 
-    public function precedes(Period $other): bool
+    public function precedes(Spell $other): bool
     {
         return $this->to instanceof CarbonImmutable && $other->from instanceof CarbonImmutable && $this->to->lessThanOrEqualTo($other->from);
     }
 
-    public function follows(Period $other): bool
+    public function follows(Spell $other): bool
     {
         return $other->precedes($this);
     }
 
-    public function isAdjacent(Period $other): bool
+    public function isAdjacent(Spell $other): bool
     {
         if ($this->meets($other)) {
             return true;
@@ -238,7 +238,7 @@ final readonly class Period implements \Stringable
         ];
     }
 
-    public function equals(Period $other): bool
+    public function equals(Spell $other): bool
     {
         return $this->boundsEqual($this->from, $other->from)
             && $this->boundsEqual($this->to, $other->to);
@@ -335,6 +335,6 @@ final readonly class Period implements \Stringable
 
     private function zeroLengthAllowed(): bool
     {
-        return (bool) config('bitemporal.periods.allow_zero_length', false);
+        return (bool) config('bitemporal.spells.allow_zero_length', false);
     }
 }

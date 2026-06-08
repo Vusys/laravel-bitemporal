@@ -2,12 +2,8 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal;
+namespace Vusys\Bitemporal;
 
-use Bitemporal\Concerns\HasPeriodQueries;
-use Bitemporal\Exceptions\TemporalCardinalityException;
-use Bitemporal\Exceptions\TemporalConfigurationException;
-use Bitemporal\Support\TemporalEntityMetadata;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -16,6 +12,10 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\MultipleRecordsFoundException;
 use Illuminate\Support\Collection as SupportCollection;
+use Vusys\Bitemporal\Concerns\HasSpellQueries;
+use Vusys\Bitemporal\Exceptions\TemporalCardinalityException;
+use Vusys\Bitemporal\Exceptions\TemporalConfigurationException;
+use Vusys\Bitemporal\Support\TemporalEntityMetadata;
 
 /**
  * Eloquent builder for temporal models. Adds point-in-time and entity-scoping
@@ -27,7 +27,7 @@ use Illuminate\Support\Collection as SupportCollection;
  */
 class BitemporalBuilder extends Builder
 {
-    use HasPeriodQueries;
+    use HasSpellQueries;
 
     private ?TemporalEntityMetadata $temporalMeta = null;
 
@@ -138,7 +138,7 @@ class BitemporalBuilder extends Builder
 
     protected function instant(CarbonInterface|string $date): string
     {
-        $timezone = config('bitemporal.periods.timezone', 'UTC');
+        $timezone = config('bitemporal.spells.timezone', 'UTC');
 
         return CarbonImmutable::parse($date)
             ->setTimezone(is_string($timezone) ? $timezone : 'UTC')

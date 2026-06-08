@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Tests\Property;
+namespace Vusys\Bitemporal\Tests\Property;
 
-use Bitemporal\Period;
-use Bitemporal\Tests\TestCase;
-use Bitemporal\Timeline;
-use Bitemporal\TimelineSegment;
 use Carbon\CarbonImmutable;
 use PHPUnit\Framework\Attributes\Group;
+use Vusys\Bitemporal\Spell;
+use Vusys\Bitemporal\Tests\TestCase;
+use Vusys\Bitemporal\Timeline;
+use Vusys\Bitemporal\TimelineSegment;
 
 #[Group('property')]
 final class TimelinePropertyTest extends TestCase
@@ -30,7 +30,7 @@ final class TimelinePropertyTest extends TestCase
             $openEnded = $i === $count - 1 && random_int(0, 2) === 0;
 
             $segments[] = new TimelineSegment(
-                new Period($cursor, $openEnded ? null : $next),
+                new Spell($cursor, $openEnded ? null : $next),
                 null,
                 ['amount' => random_int(0, 3) * 100],
             );
@@ -79,7 +79,7 @@ final class TimelinePropertyTest extends TestCase
         for ($i = 0; $i < self::ITERATIONS; $i++) {
             $timeline = $this->randomTimeline();
 
-            $window = Period::between('2026-02-01', '2026-04-01');
+            $window = Spell::between('2026-02-01', '2026-04-01');
             $next = $timeline->applyCorrection(new TimelineSegment($window, null, ['amount' => 9999]));
 
             $cursor = CarbonImmutable::parse('2026-01-01');
@@ -105,7 +105,7 @@ final class TimelinePropertyTest extends TestCase
     {
         for ($i = 0; $i < self::ITERATIONS; $i++) {
             $timeline = $this->randomTimeline();
-            $window = Period::between('2026-02-15', '2026-03-15');
+            $window = Spell::between('2026-02-15', '2026-03-15');
 
             $result = $timeline->subtract($window);
 

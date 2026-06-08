@@ -2,27 +2,27 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Casts;
+namespace Vusys\Bitemporal\Casts;
 
-use Bitemporal\Period;
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Illuminate\Database\Eloquent\Model;
+use Vusys\Bitemporal\Spell;
 
 /**
- * Reads and writes a Period against a native PostgreSQL tstzrange column.
+ * Reads and writes a Spell against a native PostgreSQL tstzrange column.
  * Fully implemented in Phase 12 (PostgreSQL range columns); this stub fixes the
  * public class name and cast contract from Phase 2.
  *
- * @implements CastsAttributes<Period, Period>
+ * @implements CastsAttributes<Spell, Spell>
  */
-final class PostgresPeriodCast implements CastsAttributes
+final class PostgresSpellCast implements CastsAttributes
 {
     /**
      * @param  array<string, mixed>  $attributes
      */
-    public function get(Model $model, string $key, mixed $value, array $attributes): ?Period
+    public function get(Model $model, string $key, mixed $value, array $attributes): ?Spell
     {
-        return $value instanceof Period ? $value : null;
+        return $value instanceof Spell ? $value : null;
     }
 
     /**

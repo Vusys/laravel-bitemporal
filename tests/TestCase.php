@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Tests;
+namespace Vusys\Bitemporal\Tests;
 
-use Bitemporal\BitemporalServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
+use Vusys\Bitemporal\BitemporalServiceProvider;
 
 abstract class TestCase extends Orchestra
 {

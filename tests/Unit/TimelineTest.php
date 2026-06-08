@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Tests\Unit;
+namespace Vusys\Bitemporal\Tests\Unit;
 
-use Bitemporal\Exceptions\TemporalInvalidPeriodException;
-use Bitemporal\Exceptions\TemporalOverlapException;
-use Bitemporal\Period;
-use Bitemporal\Tests\TestCase;
-use Bitemporal\Timeline;
-use Bitemporal\TimelineSegment;
 use Carbon\CarbonImmutable;
+use Vusys\Bitemporal\Exceptions\TemporalInvalidSpellException;
+use Vusys\Bitemporal\Exceptions\TemporalOverlapException;
+use Vusys\Bitemporal\Spell;
+use Vusys\Bitemporal\Tests\TestCase;
+use Vusys\Bitemporal\Timeline;
+use Vusys\Bitemporal\TimelineSegment;
 
 final class TimelineTest extends TestCase
 {
@@ -20,7 +20,7 @@ final class TimelineTest extends TestCase
     private function segment(?string $from, ?string $to, array $attributes = ['amount' => 1000], bool $retraction = false): TimelineSegment
     {
         return new TimelineSegment(
-            new Period($from === null ? null : CarbonImmutable::parse($from), $to === null ? null : CarbonImmutable::parse($to)),
+            new Spell($from === null ? null : CarbonImmutable::parse($from), $to === null ? null : CarbonImmutable::parse($to)),
             null,
             $attributes,
             $retraction,
@@ -47,8 +47,8 @@ final class TimelineTest extends TestCase
         ]);
 
         $segments = $timeline->segments();
-        $this->assertTrue($segments[0]->validPeriod->equals(Period::between('2026-01-01', '2026-06-01')));
-        $this->assertTrue($segments[1]->validPeriod->equals(Period::between('2026-06-01', '2026-09-01')));
+        $this->assertTrue($segments[0]->validSpell->equals(Spell::between('2026-01-01', '2026-06-01')));
+        $this->assertTrue($segments[1]->validSpell->equals(Spell::between('2026-06-01', '2026-09-01')));
     }
 
     public function test_open_start_sorts_first(): void
@@ -58,7 +58,7 @@ final class TimelineTest extends TestCase
             $this->segment(null, '2026-01-01'),
         ]);
 
-        $this->assertTrue($timeline->head()?->validPeriod->isOpenStart());
+        $this->assertTrue($timeline->head()?->validSpell->isOpenStart());
     }
 
     public function test_sorts_open_start_segment_from_any_input_position(): void
@@ -69,8 +69,8 @@ final class TimelineTest extends TestCase
             $this->segment('2026-01-01', '2026-06-01'),
         ]);
 
-        $this->assertTrue($timeline->head()?->validPeriod->isOpenStart());
-        $this->assertTrue($timeline->tail()?->validPeriod->equals(Period::between('2026-06-01', '2026-09-01')));
+        $this->assertTrue($timeline->head()?->validSpell->isOpenStart());
+        $this->assertTrue($timeline->tail()?->validSpell->equals(Spell::between('2026-06-01', '2026-09-01')));
     }
 
     public function test_sorts_open_start_segment_supplied_first(): void
@@ -80,7 +80,7 @@ final class TimelineTest extends TestCase
             $this->segment('2026-01-01', '2026-06-01'),
         ]);
 
-        $this->assertTrue($timeline->head()?->validPeriod->isOpenStart());
+        $this->assertTrue($timeline->head()?->validSpell->isOpenStart());
     }
 
     public function test_rejects_two_open_start_segments(): void
@@ -143,9 +143,9 @@ final class TimelineTest extends TestCase
             $this->segment('2026-06-01', null),
         ]);
 
-        $this->assertTrue($timeline->head()?->validPeriod->equals(Period::between('2026-01-01', '2026-06-01')));
-        $this->assertTrue($timeline->tail()?->validPeriod->isOpenEnded());
-        $this->assertTrue($timeline->openEnded()?->validPeriod->isOpenEnded());
+        $this->assertTrue($timeline->head()?->validSpell->equals(Spell::between('2026-01-01', '2026-06-01')));
+        $this->assertTrue($timeline->tail()?->validSpell->isOpenEnded());
+        $this->assertTrue($timeline->openEnded()?->validSpell->isOpenEnded());
     }
 
     public function test_iterator(): void
@@ -169,10 +169,10 @@ final class TimelineTest extends TestCase
             $this->segment('2026-01-01', '2026-12-01', ['amount' => 1000]),
         ]);
 
-        $clipped = $timeline->during(Period::between('2026-04-01', '2026-09-01'));
+        $clipped = $timeline->during(Spell::between('2026-04-01', '2026-09-01'));
 
         $this->assertCount(1, $clipped);
-        $this->assertTrue($clipped->head()?->validPeriod->equals(Period::between('2026-04-01', '2026-09-01')));
+        $this->assertTrue($clipped->head()?->validSpell->equals(Spell::between('2026-04-01', '2026-09-01')));
     }
 
     public function test_during_drops_outside_segments(): void
@@ -182,10 +182,10 @@ final class TimelineTest extends TestCase
             $this->segment('2026-06-01', '2026-09-01'),
         ]);
 
-        $clipped = $timeline->during(Period::between('2026-05-01', '2026-07-01'));
+        $clipped = $timeline->during(Spell::between('2026-05-01', '2026-07-01'));
 
         $this->assertCount(1, $clipped);
-        $this->assertTrue($clipped->head()?->validPeriod->equals(Period::between('2026-06-01', '2026-07-01')));
+        $this->assertTrue($clipped->head()?->validSpell->equals(Spell::between('2026-06-01', '2026-07-01')));
     }
 
     public function test_spans(): void
@@ -195,14 +195,14 @@ final class TimelineTest extends TestCase
             $this->segment('2026-06-01', '2026-09-01'),
         ]);
 
-        $this->assertTrue($timeline->spans()->equals(Period::between('2026-01-01', '2026-09-01')));
+        $this->assertTrue($timeline->spans()->equals(Spell::between('2026-01-01', '2026-09-01')));
     }
 
     public function test_spans_single_segment(): void
     {
         $timeline = new Timeline([$this->segment('2026-01-01', '2026-06-01')]);
 
-        $this->assertTrue($timeline->spans()->equals(Period::between('2026-01-01', '2026-06-01')));
+        $this->assertTrue($timeline->spans()->equals(Spell::between('2026-01-01', '2026-06-01')));
     }
 
     public function test_spans_open_start(): void
@@ -212,7 +212,7 @@ final class TimelineTest extends TestCase
             $this->segment('2026-06-01', '2026-09-01'),
         ]);
 
-        $this->assertTrue($timeline->spans()->equals(Period::endingAt('2026-09-01')));
+        $this->assertTrue($timeline->spans()->equals(Spell::endingAt('2026-09-01')));
     }
 
     public function test_spans_unbounded_when_open_ended(): void
@@ -227,7 +227,7 @@ final class TimelineTest extends TestCase
 
     public function test_spans_empty_throws(): void
     {
-        $this->expectException(TemporalInvalidPeriodException::class);
+        $this->expectException(TemporalInvalidSpellException::class);
 
         Timeline::empty()->spans();
     }
@@ -268,11 +268,11 @@ final class TimelineTest extends TestCase
     {
         $timeline = new Timeline([$this->segment('2026-01-01', '2026-12-01')]);
 
-        $result = $timeline->subtract(Period::between('2026-04-01', '2026-08-01'));
+        $result = $timeline->subtract(Spell::between('2026-04-01', '2026-08-01'));
 
         $this->assertCount(2, $result);
-        $this->assertTrue($result->segments()[0]->validPeriod->equals(Period::between('2026-01-01', '2026-04-01')));
-        $this->assertTrue($result->segments()[1]->validPeriod->equals(Period::between('2026-08-01', '2026-12-01')));
+        $this->assertTrue($result->segments()[0]->validSpell->equals(Spell::between('2026-01-01', '2026-04-01')));
+        $this->assertTrue($result->segments()[1]->validSpell->equals(Spell::between('2026-08-01', '2026-12-01')));
     }
 
     public function test_apply_correction(): void
@@ -282,7 +282,7 @@ final class TimelineTest extends TestCase
         ]);
 
         $next = $timeline->applyCorrection(new TimelineSegment(
-            Period::between('2026-04-01', '2026-07-01'),
+            Spell::between('2026-04-01', '2026-07-01'),
             null,
             ['amount' => 1200],
         ));
@@ -300,10 +300,10 @@ final class TimelineTest extends TestCase
     {
         $timeline = new Timeline([$this->segment('2026-01-01', null)]);
 
-        $this->expectException(TemporalInvalidPeriodException::class);
+        $this->expectException(TemporalInvalidSpellException::class);
         $this->expectExceptionMessage('applyCorrection does not accept anti-row segments');
 
-        $timeline->applyCorrection(new TimelineSegment(Period::between('2026-04-01', '2026-07-01'), null, [], true));
+        $timeline->applyCorrection(new TimelineSegment(Spell::between('2026-04-01', '2026-07-01'), null, [], true));
     }
 
     public function test_apply_retraction(): void
@@ -312,7 +312,7 @@ final class TimelineTest extends TestCase
             $this->segment('2026-01-01', null, ['amount' => 1000]),
         ]);
 
-        $next = $timeline->applyRetraction(Period::between('2026-04-01', '2026-07-01'));
+        $next = $timeline->applyRetraction(Spell::between('2026-04-01', '2026-07-01'));
 
         $this->assertCount(3, $next);
         $retracted = $next->at(CarbonImmutable::parse('2026-05-01'));
@@ -330,7 +330,7 @@ final class TimelineTest extends TestCase
         $compacted = $timeline->compact([]);
 
         $this->assertCount(1, $compacted);
-        $this->assertTrue($compacted->head()?->validPeriod->equals(Period::between('2026-01-01', '2026-09-01')));
+        $this->assertTrue($compacted->head()?->validSpell->equals(Spell::between('2026-01-01', '2026-09-01')));
     }
 
     public function test_compact_keeps_different_attributes(): void
@@ -384,22 +384,22 @@ final class TimelineTest extends TestCase
         $this->assertCount(1, $timeline->compact(['currency']));
     }
 
-    public function test_compact_merges_when_recorded_periods_match(): void
+    public function test_compact_merges_when_recorded_spells_match(): void
     {
-        $recorded = Period::between('2026-01-01', null);
+        $recorded = Spell::between('2026-01-01', null);
         $timeline = new Timeline([
-            new TimelineSegment(Period::between('2026-01-01', '2026-06-01'), $recorded, ['amount' => 1000]),
-            new TimelineSegment(Period::between('2026-06-01', '2026-09-01'), $recorded, ['amount' => 1000]),
+            new TimelineSegment(Spell::between('2026-01-01', '2026-06-01'), $recorded, ['amount' => 1000]),
+            new TimelineSegment(Spell::between('2026-06-01', '2026-09-01'), $recorded, ['amount' => 1000]),
         ]);
 
         $this->assertCount(1, $timeline->compact([]));
     }
 
-    public function test_compact_keeps_segments_with_different_recorded_periods(): void
+    public function test_compact_keeps_segments_with_different_recorded_spells(): void
     {
         $timeline = new Timeline([
-            new TimelineSegment(Period::between('2026-01-01', '2026-06-01'), Period::between('2026-01-01', null), ['amount' => 1000]),
-            new TimelineSegment(Period::between('2026-06-01', '2026-09-01'), Period::between('2026-02-01', null), ['amount' => 1000]),
+            new TimelineSegment(Spell::between('2026-01-01', '2026-06-01'), Spell::between('2026-01-01', null), ['amount' => 1000]),
+            new TimelineSegment(Spell::between('2026-06-01', '2026-09-01'), Spell::between('2026-02-01', null), ['amount' => 1000]),
         ]);
 
         $this->assertCount(2, $timeline->compact([]));
@@ -461,9 +461,9 @@ final class TimelineTest extends TestCase
         $this->assertCount(2, $timeline);
         $this->assertSame(1000, $timeline->head()?->attributes['amount']);
         $this->assertArrayNotHasKey('valid_from', $timeline->head()->attributes);
-        $this->assertNotNull($timeline->head()->recordedPeriod);
-        $this->assertTrue($timeline->head()->recordedPeriod->from?->equalTo(CarbonImmutable::parse('2026-01-01')));
-        $this->assertTrue($timeline->head()->recordedPeriod->isOpenEnded());
+        $this->assertNotNull($timeline->head()->recordedSpell);
+        $this->assertTrue($timeline->head()->recordedSpell->from?->equalTo(CarbonImmutable::parse('2026-01-01')));
+        $this->assertTrue($timeline->head()->recordedSpell->isOpenEnded());
     }
 
     public function test_from_rows_reads_retraction_flag(): void
@@ -510,7 +510,7 @@ final class TimelineTest extends TestCase
             ['amount' => 1000, 'valid_from' => '2026-01-01', 'valid_to' => null, 'is_retraction' => false],
         ], $columnMap);
 
-        $this->assertNull($timeline->head()?->recordedPeriod);
+        $this->assertNull($timeline->head()?->recordedSpell);
     }
 
     public function test_from_rows_accepts_datetime_objects(): void
@@ -530,7 +530,7 @@ final class TimelineTest extends TestCase
             ],
         ], $columnMap);
 
-        $this->assertTrue($timeline->head()?->validPeriod->from?->equalTo(CarbonImmutable::parse('2026-01-01')));
+        $this->assertTrue($timeline->head()?->validSpell->from?->equalTo(CarbonImmutable::parse('2026-01-01')));
     }
 
     public function test_from_rows_rejects_uninterpretable_value(): void
@@ -541,7 +541,7 @@ final class TimelineTest extends TestCase
             'is_retraction' => 'is_retraction',
         ];
 
-        $this->expectException(TemporalInvalidPeriodException::class);
+        $this->expectException(TemporalInvalidSpellException::class);
         $this->expectExceptionMessage('cannot be interpreted as a date');
 
         Timeline::fromRows([

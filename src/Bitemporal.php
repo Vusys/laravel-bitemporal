@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal;
+namespace Vusys\Bitemporal;
 
-use Bitemporal\Collections\BitemporalCollection;
-use Bitemporal\Concerns\HasTemporalCasts;
-use Bitemporal\Concerns\HasTemporalEntity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
+use Vusys\Bitemporal\Collections\BitemporalCollection;
+use Vusys\Bitemporal\Concerns\HasTemporalCasts;
+use Vusys\Bitemporal\Concerns\HasTemporalEntity;
 
 /**
  * Marks an Eloquent model as temporal. The model must define a

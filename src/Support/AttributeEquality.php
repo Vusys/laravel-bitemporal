@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Support;
+namespace Vusys\Bitemporal\Support;
 
 use Carbon\CarbonImmutable;
 use DateTimeInterface;

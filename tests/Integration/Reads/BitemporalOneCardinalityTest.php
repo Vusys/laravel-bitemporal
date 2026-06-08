@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Tests\Integration\Reads;
+namespace Vusys\Bitemporal\Tests\Integration\Reads;
 
-use Bitemporal\Exceptions\TemporalCardinalityException;
-use Bitemporal\Tests\Integration\IntegrationTestCase;
+use Vusys\Bitemporal\Exceptions\TemporalCardinalityException;
+use Vusys\Bitemporal\Tests\Integration\IntegrationTestCase;
 
 final class BitemporalOneCardinalityTest extends IntegrationTestCase
 {

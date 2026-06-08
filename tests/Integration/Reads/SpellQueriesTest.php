@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Tests\Integration\Reads;
+namespace Vusys\Bitemporal\Tests\Integration\Reads;
 
-use Bitemporal\Tests\Fixtures\Models\Product;
-use Bitemporal\Tests\Fixtures\Models\ProductPrice;
-use Bitemporal\Tests\Integration\IntegrationTestCase;
+use Vusys\Bitemporal\Tests\Fixtures\Models\Product;
+use Vusys\Bitemporal\Tests\Fixtures\Models\ProductPrice;
+use Vusys\Bitemporal\Tests\Integration\IntegrationTestCase;
 
-final class PeriodQueriesTest extends IntegrationTestCase
+final class SpellQueriesTest extends IntegrationTestCase
 {
     private function seedThreeSegments(): Product
     {

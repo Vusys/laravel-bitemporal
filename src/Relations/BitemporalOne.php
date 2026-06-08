@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Relations;
+namespace Vusys\Bitemporal\Relations;
 
-use Bitemporal\Exceptions\TemporalCardinalityException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Vusys\Bitemporal\Exceptions\TemporalCardinalityException;
 
 /**
  * A one-to-one temporal relation. `sole()` returns null when no row matches

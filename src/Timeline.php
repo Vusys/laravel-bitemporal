@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal;
+namespace Vusys\Bitemporal;
 
 use ArrayIterator;
-use Bitemporal\Exceptions\TemporalInvalidPeriodException;
-use Bitemporal\Exceptions\TemporalOverlapException;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Countable;
 use DateTimeInterface;
 use IteratorAggregate;
 use Traversable;
+use Vusys\Bitemporal\Exceptions\TemporalInvalidSpellException;
+use Vusys\Bitemporal\Exceptions\TemporalOverlapException;
 
 /**
  * An ordered, non-overlapping sequence of TimelineSegments, all belonging to
@@ -35,13 +35,13 @@ final readonly class Timeline implements Countable, IteratorAggregate
     {
         $sorted = $segments;
         usort($sorted, static fn (TimelineSegment $a, TimelineSegment $b): int => self::compareFrom(
-            $a->validPeriod->from,
-            $b->validPeriod->from,
+            $a->validSpell->from,
+            $b->validSpell->from,
         ));
 
         $count = count($sorted);
         for ($i = 1; $i < $count; $i++) {
-            if ($sorted[$i - 1]->validPeriod->intersects($sorted[$i]->validPeriod)) {
+            if ($sorted[$i - 1]->validSpell->intersects($sorted[$i]->validSpell)) {
                 throw TemporalOverlapException::betweenSegments($i - 1, $i);
             }
         }
@@ -63,15 +63,15 @@ final readonly class Timeline implements Countable, IteratorAggregate
         $segments = [];
 
         foreach ($rows as $row) {
-            $validPeriod = Period::fromArray([
+            $validSpell = Spell::fromArray([
                 'from' => self::dateValue($row[$columnMap['valid_from']] ?? null),
                 'to' => self::dateValue($row[$columnMap['valid_to']] ?? null),
             ]);
 
-            $recordedPeriod = null;
+            $recordedSpell = null;
             if (isset($columnMap['recorded_from'], $columnMap['recorded_to'])
                 && array_key_exists($columnMap['recorded_from'], $row)) {
-                $recordedPeriod = Period::fromArray([
+                $recordedSpell = Spell::fromArray([
                     'from' => self::dateValue($row[$columnMap['recorded_from']] ?? null),
                     'to' => self::dateValue($row[$columnMap['recorded_to']] ?? null),
                 ]);
@@ -86,7 +86,7 @@ final readonly class Timeline implements Countable, IteratorAggregate
                 }
             }
 
-            $segments[] = new TimelineSegment($validPeriod, $recordedPeriod, $attributes, $isRetraction);
+            $segments[] = new TimelineSegment($validSpell, $recordedSpell, $attributes, $isRetraction);
         }
 
         return new self($segments);
@@ -121,7 +121,7 @@ final readonly class Timeline implements Countable, IteratorAggregate
     public function at(CarbonInterface $instant): ?TimelineSegment
     {
         foreach ($this->segments as $segment) {
-            if ($segment->validPeriod->containsInstant($instant)) {
+            if ($segment->validSpell->containsInstant($instant)) {
                 return $segment;
             }
         }
@@ -129,15 +129,15 @@ final readonly class Timeline implements Countable, IteratorAggregate
         return null;
     }
 
-    public function during(Period $window): self
+    public function during(Spell $window): self
     {
         $clipped = [];
 
         foreach ($this->segments as $segment) {
-            $intersection = $segment->validPeriod->intersect($window);
+            $intersection = $segment->validSpell->intersect($window);
 
             if ($intersection !== null) {
-                $clipped[] = $segment->withValidPeriod($intersection);
+                $clipped[] = $segment->withValidSpell($intersection);
             }
         }
 
@@ -161,7 +161,7 @@ final readonly class Timeline implements Countable, IteratorAggregate
     public function openEnded(): ?TimelineSegment
     {
         foreach ($this->segments as $segment) {
-            if ($segment->validPeriod->isOpenEnded()) {
+            if ($segment->validSpell->isOpenEnded()) {
                 return $segment;
             }
         }
@@ -169,17 +169,17 @@ final readonly class Timeline implements Countable, IteratorAggregate
         return null;
     }
 
-    public function spans(): Period
+    public function spans(): Spell
     {
         if ($this->segments === []) {
-            throw TemporalInvalidPeriodException::emptyTimelineSpan();
+            throw TemporalInvalidSpellException::emptyTimelineSpan();
         }
 
-        $from = $this->segments[0]->validPeriod->from;
+        $from = $this->segments[0]->validSpell->from;
 
-        $to = $this->segments[0]->validPeriod->to;
+        $to = $this->segments[0]->validSpell->to;
         foreach ($this->segments as $segment) {
-            $segmentTo = $segment->validPeriod->to;
+            $segmentTo = $segment->validSpell->to;
 
             if ($segmentTo === null) {
                 $to = null;
@@ -192,7 +192,7 @@ final readonly class Timeline implements Countable, IteratorAggregate
             }
         }
 
-        return new Period($from, $to);
+        return new Spell($from, $to);
     }
 
     public function merge(Timeline $other): self
@@ -200,13 +200,13 @@ final readonly class Timeline implements Countable, IteratorAggregate
         return new self([...$this->segments, ...$other->segments]);
     }
 
-    public function subtract(Period $window): self
+    public function subtract(Spell $window): self
     {
         $remaining = [];
 
         foreach ($this->segments as $segment) {
-            foreach ($segment->validPeriod->subtract($window) as $piece) {
-                $remaining[] = $segment->withValidPeriod($piece);
+            foreach ($segment->validSpell->subtract($window) as $piece) {
+                $remaining[] = $segment->withValidSpell($piece);
             }
         }
 
@@ -216,13 +216,13 @@ final readonly class Timeline implements Countable, IteratorAggregate
     public function applyCorrection(TimelineSegment $correction): self
     {
         if ($correction->isRetraction) {
-            throw TemporalInvalidPeriodException::antiRowCorrection();
+            throw TemporalInvalidSpellException::antiRowCorrection();
         }
 
-        return new self([...$this->subtract($correction->validPeriod)->segments, $correction]);
+        return new self([...$this->subtract($correction->validSpell)->segments, $correction]);
     }
 
-    public function applyRetraction(Period $window): self
+    public function applyRetraction(Spell $window): self
     {
         $antiRow = new TimelineSegment($window, null, [], true);
 
@@ -240,12 +240,12 @@ final readonly class Timeline implements Countable, IteratorAggregate
             $last = $result === [] ? null : $result[count($result) - 1];
 
             if ($last !== null
-                && $last->validPeriod->meets($segment->validPeriod)
+                && $last->validSpell->meets($segment->validSpell)
                 && $last->hasSameAttributesAs($segment)
                 && $last->hasSameDimensionsAs($segment, $dimensionColumns)
-                && $this->recordedPeriodsEqual($last->recordedPeriod, $segment->recordedPeriod)) {
+                && $this->recordedSpellsEqual($last->recordedSpell, $segment->recordedSpell)) {
                 array_pop($result);
-                $result[] = $last->withValidPeriod(new Period($last->validPeriod->from, $segment->validPeriod->to));
+                $result[] = $last->withValidSpell(new Spell($last->validSpell->from, $segment->validSpell->to));
 
                 continue;
             }
@@ -266,7 +266,7 @@ final readonly class Timeline implements Countable, IteratorAggregate
     }
 
     /**
-     * @return array<int, array{valid_period: array{from: ?string, to: ?string}, recorded_period: array{from: ?string, to: ?string}|null, attributes: array<string, mixed>, is_retraction: bool}>
+     * @return array<int, array{valid_spell: array{from: ?string, to: ?string}, recorded_spell: array{from: ?string, to: ?string}|null, attributes: array<string, mixed>, is_retraction: bool}>
      */
     public function toArray(): array
     {
@@ -278,10 +278,10 @@ final readonly class Timeline implements Countable, IteratorAggregate
         return [$a instanceof CarbonImmutable, $a] <=> [$b instanceof CarbonImmutable, $b];
     }
 
-    private function recordedPeriodsEqual(?Period $a, ?Period $b): bool
+    private function recordedSpellsEqual(?Spell $a, ?Spell $b): bool
     {
-        if (! $a instanceof Period || ! $b instanceof Period) {
-            return ! $a instanceof Period && ! $b instanceof Period;
+        if (! $a instanceof Spell || ! $b instanceof Spell) {
+            return ! $a instanceof Spell && ! $b instanceof Spell;
         }
 
         return $a->equals($b);
@@ -297,6 +297,6 @@ final readonly class Timeline implements Countable, IteratorAggregate
             return CarbonImmutable::instance($value);
         }
 
-        throw TemporalInvalidPeriodException::unparseableDate();
+        throw TemporalInvalidSpellException::unparseableDate();
     }
 }

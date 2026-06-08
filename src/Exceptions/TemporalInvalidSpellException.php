@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Bitemporal\Exceptions;
+namespace Vusys\Bitemporal\Exceptions;
 
-final class TemporalInvalidPeriodException extends TemporalException
+final class TemporalInvalidSpellException extends TemporalException
 {
     public static function fromAfterTo(): self
     {
@@ -13,12 +13,12 @@ final class TemporalInvalidPeriodException extends TemporalException
 
     public static function zeroLength(): self
     {
-        return new self('zero-length periods are not permitted; enable periods.allow_zero_length to allow');
+        return new self('zero-length spells are not permitted; enable spells.allow_zero_length to allow');
     }
 
     public static function mergeDisjoint(): self
     {
-        return new self('cannot merge periods that neither overlap nor are adjacent');
+        return new self('cannot merge spells that neither overlap nor are adjacent');
     }
 
     public static function antiRowCorrection(): self
