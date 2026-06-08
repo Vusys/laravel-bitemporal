@@ -8,7 +8,10 @@
         json: "build/infection/infection.json",
         summary: "build/infection/summary.log",
         github: true,
-        stryker: { report: "master" },
+        // To publish to the Stryker dashboard once it is set up, add
+        //   stryker: { badge: "master" },
+        // here and set the STRYKER_DASHBOARD_API_KEY secret in the repo. Until
+        // then there is no third-party upload and CI needs no secrets.
     },
     mutators: { "@default": true },
     // Ratcheted after Phase 1 (value objects: 100% line coverage, ~95% MSI on

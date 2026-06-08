@@ -12,6 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     name: Mutation testing
 
+    # Empty unless the secret is configured. Infection only uploads to the
+    # Stryker dashboard when this key is set AND the stryker logger is enabled
+    # in infection.json5 — both are opt-in, so CI needs no secrets by default.
+    env:
+      STRYKER_DASHBOARD_API_KEY: ${{ secrets.STRYKER_DASHBOARD_API_KEY }}
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,11 +35,7 @@ jobs:
       - name: Infection (PR diff mode)
         if: github.event_name == 'pull_request'
         run: composer infection:diff
-        env:
-          STRYKER_DASHBOARD_API_KEY: ${{ secrets.STRYKER_DASHBOARD_API_KEY }}
 
       - name: Infection (full suite)
         if: github.event_name != 'pull_request'
         run: composer infection
-        env:
-          STRYKER_DASHBOARD_API_KEY: ${{ secrets.STRYKER_DASHBOARD_API_KEY }}
