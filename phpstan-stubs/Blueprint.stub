@@ -1,8 +1,50 @@
 <?php
 
-// Declares the package's Blueprint macros (validPeriod, recordedPeriod,
-// temporalPeriod, bitemporalPeriods, timestampRange, preventTemporalOverlaps,
-// preventBitemporalOverlaps, bitemporalForeignFor, bitemporalMorphsFor) so that
-// user projects do not see Larastan noise on $table->bitemporalPeriods() calls.
-//
-// Populated when the migration macros land (Phase 2 / Phase 7 / Phase 12).
+namespace Illuminate\Database\Schema;
+
+/**
+ * Declares the temporal Blueprint macros registered by
+ * Vusys\Bitemporal\Database\TemporalBlueprintMacros so user migrations and the
+ * package's own analysis see them.
+ */
+class Blueprint
+{
+    /**
+     * @param array<string, string> $options
+     */
+    public function validPeriod(array $options = [], bool $nullable = false): void {}
+
+    /**
+     * @param array<string, string> $options
+     */
+    public function temporalPeriod(array $options = [], bool $nullable = false): void {}
+
+    /**
+     * @param array<string, string> $options
+     */
+    public function recordedPeriod(array $options = [], bool $nullable = false): void {}
+
+    /**
+     * @param array<string, string> $options
+     */
+    public function bitemporalPeriods(array $options = [], bool $nullable = false): void {}
+
+    /**
+     * @param class-string<\Illuminate\Database\Eloquent\Model> $related
+     */
+    public function bitemporalForeignFor(string $related): void {}
+
+    public function bitemporalMorphsFor(string $name): void {}
+
+    /**
+     * @param array<int, string> $entityColumns
+     * @param array<int, string> $dimensions
+     */
+    public function preventTemporalOverlaps(array $entityColumns, array $dimensions = []): void {}
+
+    /**
+     * @param array<int, string> $entityColumns
+     * @param array<int, string> $dimensions
+     */
+    public function preventBitemporalOverlaps(array $entityColumns, array $dimensions = []): void {}
+}
