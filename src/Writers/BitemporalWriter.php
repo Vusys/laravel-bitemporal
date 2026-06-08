@@ -556,6 +556,8 @@ final readonly class BitemporalWriter
             throw new TemporalInvalidSpellException($this->related::class.' must use the Bitemporal trait');
         }
 
+        // Writes read the true stored state, never an ambient point-in-time lens.
+        $query->withoutLens();
         $query->where($this->foreignKey, $this->entity->getKey());
 
         foreach ($this->dimensions as $column => $value) {

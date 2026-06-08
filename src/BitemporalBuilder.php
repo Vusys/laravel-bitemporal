@@ -14,6 +14,7 @@ use Illuminate\Database\MultipleRecordsFoundException;
 use Illuminate\Support\Collection as SupportCollection;
 use Vusys\Bitemporal\Concerns\HasSpellQueries;
 use Vusys\Bitemporal\Concerns\HasTemporalDimensions;
+use Vusys\Bitemporal\Concerns\InteractsWithLens;
 use Vusys\Bitemporal\Exceptions\TemporalCardinalityException;
 use Vusys\Bitemporal\Exceptions\TemporalConfigurationException;
 use Vusys\Bitemporal\Support\TemporalEntityMetadata;
@@ -30,6 +31,7 @@ class BitemporalBuilder extends Builder
 {
     use HasSpellQueries;
     use HasTemporalDimensions;
+    use InteractsWithLens;
 
     private ?TemporalEntityMetadata $temporalMeta = null;
 
@@ -38,6 +40,7 @@ class BitemporalBuilder extends Builder
      */
     public function validAt(CarbonInterface|string $date): static
     {
+        $this->markValidAtPinned();
         $meta = $this->temporalMetadata();
 
         return $this->containsInstant($meta->validFrom, $meta->validTo, $date);
@@ -48,6 +51,7 @@ class BitemporalBuilder extends Builder
      */
     public function knownAt(CarbonInterface|string $date): static
     {
+        $this->markKnownAtPinned();
         $meta = $this->requireRecordedTime('knownAt');
 
         return $this->containsInstant($meta->recordedFrom, $meta->recordedTo, $date);
@@ -58,6 +62,7 @@ class BitemporalBuilder extends Builder
      */
     public function currentKnowledge(): static
     {
+        $this->markKnownAtPinned();
         $meta = $this->requireRecordedTime('currentKnowledge');
 
         $this->whereNull($this->qualify($meta->recordedTo));
