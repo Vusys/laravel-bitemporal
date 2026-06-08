@@ -6,6 +6,7 @@ namespace Vusys\Bitemporal\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Vusys\Bitemporal\Exceptions\TemporalConfigurationException;
 use Vusys\Bitemporal\Relations\BitemporalMany;
 use Vusys\Bitemporal\Relations\BitemporalOne;
@@ -34,6 +35,32 @@ trait HasBitemporalRelations
             $this,
             $instance->getTable().'.'.$foreignKey,
             $localKey,
+        );
+    }
+
+    /**
+     * A one-to-many relation to a model whose temporalEntity() is a MorphTo.
+     * Scopes by both the morph id (the foreign key) and the morph type.
+     *
+     * @template TRelated of Model
+     *
+     * @param  class-string<TRelated>  $related
+     * @return BitemporalMany<TRelated, $this>
+     */
+    public function bitemporalMorphMany(string $related)
+    {
+        $instance = $this->newTemporalRelatedInstance($related);
+        $relation = $this->resolveTemporalMorphTo($instance);
+
+        return new BitemporalMany(
+            $related::query()->setModel($instance)->where(
+                $instance->getTable().'.'.$relation->getMorphType(),
+                '=',
+                $this->getMorphClass(),
+            ),
+            $this,
+            $instance->getTable().'.'.$relation->getForeignKeyName(),
+            $this->getKeyName(),
         );
     }
 
@@ -100,5 +127,25 @@ trait HasBitemporalRelations
         }
 
         return $relation->getForeignKeyName();
+    }
+
+    /**
+     * @return MorphTo<Model, Model>
+     */
+    private function resolveTemporalMorphTo(Model $instance): MorphTo
+    {
+        if (! method_exists($instance, 'temporalEntity')) {
+            throw TemporalConfigurationException::missingTemporalEntity($instance::class);
+        }
+
+        $relation = $instance->temporalEntity();
+
+        if (! $relation instanceof MorphTo) {
+            throw new TemporalConfigurationException(
+                'bitemporalMorphMany() requires the related model to define a MorphTo temporalEntity()',
+            );
+        }
+
+        return $relation;
     }
 }

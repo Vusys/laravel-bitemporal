@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\MultipleRecordsFoundException;
 use Illuminate\Support\Collection as SupportCollection;
 use Vusys\Bitemporal\Concerns\HasSpellQueries;
@@ -17,6 +18,7 @@ use Vusys\Bitemporal\Concerns\HasTemporalDimensions;
 use Vusys\Bitemporal\Concerns\InteractsWithLens;
 use Vusys\Bitemporal\Exceptions\TemporalCardinalityException;
 use Vusys\Bitemporal\Exceptions\TemporalConfigurationException;
+use Vusys\Bitemporal\Support\MorphContext;
 use Vusys\Bitemporal\Support\TemporalEntityMetadata;
 
 /**
@@ -70,9 +72,19 @@ class BitemporalBuilder extends Builder
         return $this;
     }
 
-    public function whereTemporalEntity(Model $entity): static
+    public function whereTemporalEntity(Model|MorphContext $entity): static
     {
-        $this->where($this->qualify($this->temporalForeignKey()), '=', $entity->getKey());
+        $columns = $this->temporalEntityColumns();
+        $context = $entity instanceof MorphContext ? $entity : MorphContext::fromModel($entity);
+
+        if (isset($columns['type'])) {
+            $this->where($this->qualify($columns['type']), '=', $context->type)
+                ->where($this->qualify($columns['id']), '=', $context->id);
+
+            return $this;
+        }
+
+        $this->where($this->qualify($columns['id']), '=', $context->id);
 
         return $this;
     }
@@ -82,23 +94,29 @@ class BitemporalBuilder extends Builder
      */
     public function whereTemporalEntityIn(iterable $entities): static
     {
-        $keys = new SupportCollection($entities)
-            ->map(static function (mixed $entity): mixed {
-                if ($entity instanceof Model) {
-                    return $entity->getKey();
-                }
+        $columns = $this->temporalEntityColumns();
 
-                if (is_int($entity) || is_string($entity)) {
-                    return $entity;
-                }
+        if (! isset($columns['type'])) {
+            $keys = new SupportCollection($entities)
+                ->map(static function (mixed $entity): mixed {
+                    if ($entity instanceof Model) {
+                        return $entity->getKey();
+                    }
 
-                throw TemporalConfigurationException::unexpectedEntityArgument(get_debug_type($entity));
-            })
-            ->all();
+                    if (is_int($entity) || is_string($entity)) {
+                        return $entity;
+                    }
 
-        $this->whereIn($this->qualify($this->temporalForeignKey()), $keys);
+                    throw TemporalConfigurationException::unexpectedEntityArgument(get_debug_type($entity));
+                })
+                ->all();
 
-        return $this;
+            $this->whereIn($this->qualify($columns['id']), $keys);
+
+            return $this;
+        }
+
+        return $this->wherePolymorphicEntityIn($columns, $entities);
     }
 
     /**
@@ -107,8 +125,47 @@ class BitemporalBuilder extends Builder
      */
     public function whereTemporalEntityOf(string $class, array $ids): static
     {
-        unset($class);
-        $this->whereIn($this->qualify($this->temporalForeignKey()), $ids);
+        $columns = $this->temporalEntityColumns();
+
+        if (isset($columns['type'])) {
+            $this->where($this->qualify($columns['type']), '=', (new $class)->getMorphClass())
+                ->whereIn($this->qualify($columns['id']), $ids);
+
+            return $this;
+        }
+
+        $this->whereIn($this->qualify($columns['id']), $ids);
+
+        return $this;
+    }
+
+    /**
+     * @param  array{type: string, id: string}  $columns
+     * @param  iterable<int, mixed>  $entities
+     */
+    private function wherePolymorphicEntityIn(array $columns, iterable $entities): static
+    {
+        $byType = [];
+        foreach ($entities as $entity) {
+            $context = match (true) {
+                $entity instanceof Model => MorphContext::fromModel($entity),
+                $entity instanceof MorphContext => $entity,
+                default => throw TemporalConfigurationException::unexpectedEntityArgument(get_debug_type($entity)),
+            };
+
+            $byType[$context->type][] = $context->id;
+        }
+
+        $typeColumn = $this->qualify($columns['type']);
+        $idColumn = $this->qualify($columns['id']);
+
+        $this->where(function (self $query) use ($byType, $typeColumn, $idColumn): void {
+            foreach ($byType as $type => $ids) {
+                $query->orWhere(function (self $group) use ($type, $ids, $typeColumn, $idColumn): void {
+                    $group->where($typeColumn, '=', $type)->whereIn($idColumn, $ids);
+                });
+            }
+        });
 
         return $this;
     }
@@ -185,7 +242,10 @@ class BitemporalBuilder extends Builder
         return $meta;
     }
 
-    private function temporalForeignKey(): string
+    /**
+     * @return array{type?: string, id: string}
+     */
+    private function temporalEntityColumns(): array
     {
         $model = $this->getModel();
 
@@ -195,12 +255,16 @@ class BitemporalBuilder extends Builder
 
         $relation = $model->temporalEntity();
 
-        if (! $relation instanceof BelongsTo) {
-            throw new TemporalConfigurationException(
-                'temporalEntity() must return a BelongsTo relation (MorphTo support arrives in Phase 8)',
-            );
+        if ($relation instanceof MorphTo) {
+            return ['type' => $relation->getMorphType(), 'id' => $relation->getForeignKeyName()];
         }
 
-        return $relation->getForeignKeyName();
+        if ($relation instanceof BelongsTo) {
+            return ['id' => $relation->getForeignKeyName()];
+        }
+
+        throw new TemporalConfigurationException(
+            'temporalEntity() must return a BelongsTo or MorphTo relation',
+        );
     }
 }

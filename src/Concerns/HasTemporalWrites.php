@@ -7,7 +7,10 @@ namespace Vusys\Bitemporal\Concerns;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Vusys\Bitemporal\BitemporalBuilder;
 use Vusys\Bitemporal\Events\TemporalChangeCommitted;
 use Vusys\Bitemporal\Events\TemporalCorrectionCommitted;
@@ -79,7 +82,7 @@ trait HasTemporalWrites
         $dimensions = [];
 
         if ($query instanceof BitemporalBuilder) {
-            if ($query->hasWheresOutside([$this->getForeignKeyName(), ...$declared])) {
+            if ($query->hasWheresOutside([...$this->temporalEntityColumns($related), ...$declared])) {
                 throw TemporalMissingDimensionException::pendingWhere();
             }
 
@@ -89,11 +92,32 @@ trait HasTemporalWrites
         return new BitemporalWriter(
             $related,
             $this->getParent(),
-            $this->getForeignKeyName(),
             $dimensions,
             $app->make(WriteLocker::class),
             new TimelineSplitter,
             $app->make(Dispatcher::class),
         );
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function temporalEntityColumns(Model $related): array
+    {
+        if (! method_exists($related, 'temporalEntity')) {
+            return [];
+        }
+
+        $relation = $related->temporalEntity();
+
+        if ($relation instanceof MorphTo) {
+            return [$relation->getMorphType(), $relation->getForeignKeyName()];
+        }
+
+        if ($relation instanceof BelongsTo) {
+            return [$relation->getForeignKeyName()];
+        }
+
+        return [];
     }
 }
