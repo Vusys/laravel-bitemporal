@@ -33,6 +33,28 @@ final class BlueprintMacrosTest extends IntegrationTestCase
         Schema::dropIfExists('macro_prices');
     }
 
+    public function test_overlap_macros_use_identifier_safe_index_names(): void
+    {
+        Schema::create('macro_prices', function ($table): void {
+            $table->id();
+            $table->bitemporalForeignFor(Product::class);
+            $table->string('currency', 3);
+            $table->bitemporalPeriods();
+            $table->preventBitemporalOverlaps(['product_id'], ['currency']);
+        });
+
+        foreach (Schema::getIndexes('macro_prices') as $index) {
+            $name = $index['name'] ?? '';
+            $this->assertLessThanOrEqual(
+                64,
+                strlen(is_string($name) ? $name : ''),
+                "index name '{$name}' exceeds the 64-character identifier limit",
+            );
+        }
+
+        Schema::dropIfExists('macro_prices');
+    }
+
     public function test_temporal_period_macro_creates_valid_only_columns(): void
     {
         Schema::create('macro_temporal', function ($table): void {

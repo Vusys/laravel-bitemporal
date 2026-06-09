@@ -22,6 +22,16 @@ final class TemporalBlueprintMacros
     {
         $columns = static fn (): array => self::columns();
 
+        // Laravel derives index names from the table plus every column, which
+        // the long temporal column names push past MySQL/MariaDB's 64-char
+        // identifier limit. Use a short, deterministic name, hashing only when
+        // a long table name would still overflow.
+        $overlapIndex = static function (string $table, string $suffix): string {
+            $name = "{$table}_{$suffix}";
+
+            return strlen($name) <= 64 ? $name : "{$suffix}_".md5($name);
+        };
+
         /**
          * @param  array<string, string>  $map
          */
@@ -71,16 +81,22 @@ final class TemporalBlueprintMacros
             $this->morphs($name);
         });
 
-        Blueprint::macro('preventTemporalOverlaps', function (array $entityColumns, array $dimensions = []) use ($columns): void {
+        Blueprint::macro('preventTemporalOverlaps', function (array $entityColumns, array $dimensions = []) use ($columns, $overlapIndex): void {
             /** @var Blueprint $this */
             $map = $columns();
-            $this->index([...$entityColumns, ...$dimensions, $map['valid_from'], $map['valid_to']]);
+            $this->index(
+                [...$entityColumns, ...$dimensions, $map['valid_from'], $map['valid_to']],
+                $overlapIndex($this->getTable(), 'temporal_overlap'),
+            );
         });
 
-        Blueprint::macro('preventBitemporalOverlaps', function (array $entityColumns, array $dimensions = []) use ($columns): void {
+        Blueprint::macro('preventBitemporalOverlaps', function (array $entityColumns, array $dimensions = []) use ($columns, $overlapIndex): void {
             /** @var Blueprint $this */
             $map = $columns();
-            $this->index([...$entityColumns, ...$dimensions, $map['valid_from'], $map['valid_to'], $map['recorded_from'], $map['recorded_to']]);
+            $this->index(
+                [...$entityColumns, ...$dimensions, $map['valid_from'], $map['valid_to'], $map['recorded_from'], $map['recorded_to']],
+                $overlapIndex($this->getTable(), 'bitemporal_overlap'),
+            );
         });
     }
 

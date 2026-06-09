@@ -8,17 +8,28 @@ Safe effective-dated and bitemporal relations for Laravel.
 - What did the system believe was true on this business date at the time?
 - When did this value become effective, and when was a correction recorded?
 
-The value is not a handful of query scopes. It is a custom temporal relation with **safe write operations**, database constraints where possible, range splitting, correction handling, point-in-time eager loading, and testing helpers — so you can write:
+The value is not a handful of query scopes. It is a custom temporal relation with **safe write operations**, range splitting, correction handling, point-in-time eager loading, and overlap prevention — so you can correct the past without destroying the previous state of knowledge or creating overlapping historical facts.
 
 ```php
-$product->prices()->correctPeriod(attributes: ['amount' => 1200], validFrom: '2026-02-01');
+$product->prices()->correct(attributes: ['amount' => 12.00], validFrom: '2026-02-01');
 ```
 
-without accidentally destroying the previous state of knowledge or creating overlapping historical facts.
+## Installation
+
+```bash
+composer require vusys/laravel-bitemporal
+```
+
+PHP 8.4+, Laravel 11 / 12 / 13, and PostgreSQL, MySQL/MariaDB, or SQLite. The service provider is auto-discovered. See [Installation](docs/02-installation.md) for the optional config publish.
 
 ## Quick example
 
+A product has many price versions. The entity model exposes the timeline; the temporal model carries the period columns.
+
 ```php
+use Vusys\Bitemporal\Concerns\HasBitemporalRelations;
+use Vusys\Bitemporal\Relations\BitemporalMany;
+
 class Product extends Model
 {
     use HasBitemporalRelations;
@@ -29,16 +40,59 @@ class Product extends Model
     }
 }
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Vusys\Bitemporal\Bitemporal;
+
 class ProductPrice extends Model
 {
     use Bitemporal;
-}
 
+    protected $dateFormat = 'Y-m-d H:i:s.u';
+
+    public function temporalEntity(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+}
+```
+
+Period-column casts are applied automatically — you don't declare them. The migration uses the package's Blueprint macros:
+
+```php
+Schema::create('product_prices', function (Blueprint $table) {
+    $table->id();
+    $table->bitemporalForeignFor(Product::class);
+    $table->decimal('amount', 10, 2);
+    $table->bitemporalPeriods();
+    $table->timestamps();
+    $table->preventBitemporalOverlaps(['product_id']);
+});
+```
+
+Read at a point in time:
+
+```php
 $price = $product->prices()
-    ->validAt($invoice->issued_at)
-    ->knownAt($invoice->created_at)
+    ->validAt($invoice->issued_at)     // true on this business date
+    ->knownAt($invoice->created_at)    // as we believed it then
     ->sole();
 ```
+
+Write safely:
+
+```php
+$product->prices()->changeEffectiveFrom(['amount' => 12.00], validFrom: '2026-06-01');
+$product->prices()->correct(['amount' => 12.00], validFrom: '2026-02-01', validTo: '2026-03-01');
+$product->prices()->retract(validFrom: '2026-02-01', validTo: '2026-03-01');
+```
+
+## Documentation
+
+Full user guide in [`docs/`](docs/README.md):
+
+- [Concepts](docs/01-concepts.md) · [Installation](docs/02-installation.md) · [Defining models](docs/03-defining-models.md)
+- [Reading](docs/04-reading.md) · [Writing](docs/05-writing.md) · [Dimensions](docs/06-dimensions.md)
+- [As-of lens](docs/07-as-of-lens.md) · [Events](docs/08-events.md) · [Configuration](docs/09-configuration.md) · [Testing](docs/10-testing.md)
 
 ## Requirements
 
@@ -46,23 +100,19 @@ $price = $product->prices()
 - Laravel 11 / 12 / 13
 - PostgreSQL, MySQL/MariaDB, or SQLite
 
-## Documentation
+## Status
 
-The full specification lives in [`docs/`](docs/README.md):
+The package is pre-1.0 and built from a detailed internal specification. The read side, the core write side (change / correct / retract / end / supersede / hard-delete), dimensions, the as-of lens, polymorphic entities, backfill, optimistic concurrency, lock strategies, the migration macros, and the first generator are implemented and green on SQLite.
 
-- [Overview](docs/01-overview.md) · [Data model](docs/02-data-model.md) · [Relations](docs/03-relations.md)
-- [Query API](docs/04-query-api.md) · [Write API](docs/05-write-api.md) · [Algorithms](docs/06-algorithms.md)
-- [Value objects](docs/06a-value-objects.md) · [Database support](docs/07-database-support.md)
-- [Events & exceptions](docs/09-events-exceptions.md) · [Testing](docs/10-testing.md) · [Configuration](docs/11-configuration.md)
-- [Architecture](docs/12-architecture.md) · [Implementation phases](docs/16-implementation-phases.md)
+Still in progress: temporal pivots (`BitemporalBelongsToMany`), idempotency keys, a first-party audit-log subscriber, the PostgreSQL `EXCLUDE` / MySQL sentinel database grammars (verified against real engines in CI), dedicated testing helpers and factories, diff helpers, and the remaining generators.
 
 ## Development
 
 ```bash
 composer install
-composer ci          # phpstan (L9) + pint + rector + phpunit
+composer ci          # phpstan (L9, no baseline) + pint + rector + phpunit
 composer test
-composer infection
+composer infection   # mutation testing
 ```
 
 ## License

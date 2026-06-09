@@ -1,0 +1,140 @@
+# Defining models
+
+A temporal setup has two sides: the **entity** (the thing that persists — a `Product`, a `User`) and the **temporal model** (the versioned facts about it — a `ProductPrice`, a `UserRole`). The entity table is ordinary; the temporal table carries the period columns.
+
+## The temporal model
+
+Add the `Bitemporal` trait and declare a `temporalEntity()` relation pointing back at the owner. That relation is the only required piece of configuration — the trait reads it to discover the foreign key.
+
+```php
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Vusys\Bitemporal\Bitemporal;
+
+class ProductPrice extends Model
+{
+    use Bitemporal;
+
+    protected $guarded = [];
+
+    protected $dateFormat = 'Y-m-d H:i:s.u';
+
+    public function temporalEntity(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+}
+```
+
+You do **not** declare `$casts` for the period columns — the trait applies `immutable_datetime` casts to `valid_from`, `valid_to`, `recorded_from`, `recorded_to` and a boolean cast to `is_retraction` automatically. Disable that with `protected bool $autoApplyTemporalCasts = false;` if you need to manage casts yourself.
+
+The `$dateFormat = 'Y-m-d H:i:s.u'` line preserves microseconds through Eloquent's date serialisation; keep it.
+
+### Per-model overrides
+
+Everything has a config-backed default, overridable per model with a property:
+
+| Property | Purpose | Default |
+| --- | --- | --- |
+| `protected bool $tracksRecordedTime` | Set `false` for an effective-dated-only model (no recorded spell) | `true` |
+| `protected array $temporalDimensions` | Extra columns that scope independent timelines — see [Dimensions](06-dimensions.md) | `[]` |
+| `protected bool $autoApplyTemporalCasts` | Auto-cast the period columns | `true` |
+| `protected string $validFromColumn` (and `validToColumn`, `recordedFromColumn`, `recordedToColumn`, `isRetractionColumn`) | Rename an individual column for this model | config value |
+
+## The entity (parent) model
+
+Add `HasBitemporalRelations` to the owner and expose the timeline with a relation factory:
+
+```php
+use Illuminate\Database\Eloquent\Model;
+use Vusys\Bitemporal\Concerns\HasBitemporalRelations;
+use Vusys\Bitemporal\Relations\BitemporalMany;
+
+class Product extends Model
+{
+    use HasBitemporalRelations;
+
+    public function prices(): BitemporalMany
+    {
+        return $this->bitemporalMany(ProductPrice::class);
+    }
+}
+```
+
+The relation factories:
+
+- `bitemporalMany($related, $foreignKey = null, $localKey = null)` — the timeline as a one-to-many. This is the relation you call the write API on.
+- `bitemporalOne($related, …)` — the single current/as-of row; `sole()` returns `null` when absent.
+- `bitemporalOneOrFail($related, …)` — same, but throws `TemporalCardinalityException` when absent.
+- `bitemporalMorphMany($related)` — for a temporal model whose `temporalEntity()` is a `MorphTo` (a single timeline table shared across many entity types). See [polymorphic entities](#polymorphic-entities).
+
+## Migrations
+
+The package registers Blueprint macros so a temporal table reads declaratively:
+
+```php
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+Schema::create('product_prices', function (Blueprint $table) {
+    $table->id();
+    $table->bitemporalForeignFor(Product::class);   // product_id, FK, restrictOnDelete
+
+    $table->decimal('amount', 10, 2);
+
+    $table->bitemporalPeriods();                      // valid_* + recorded_* at µs precision + is_retraction
+    $table->timestamps();
+
+    $table->preventBitemporalOverlaps(['product_id']);
+});
+```
+
+Macro reference:
+
+| Macro | Emits |
+| --- | --- |
+| `validPeriod($options = [], $nullable = false)` | `valid_from`, `valid_to` (µs), `is_retraction` — effective-dated only |
+| `temporalPeriod(...)` | alias of `validPeriod` |
+| `recordedPeriod(...)` | `recorded_from`, `recorded_to` (µs) |
+| `bitemporalPeriods(...)` | both of the above — the usual choice |
+| `bitemporalForeignFor($related)` | `foreignIdFor($related)->constrained()->restrictOnDelete()` |
+| `bitemporalMorphsFor($name)` | `morphs($name)` for a polymorphic entity column |
+| `preventTemporalOverlaps($entityColumns, $dimensions = [])` | a covering index over the entity + dimensions + valid spell |
+| `preventBitemporalOverlaps($entityColumns, $dimensions = [])` | the same, including the recorded spell |
+
+`$options` lets you override individual column names (e.g. `bitemporalPeriods(['valid_from' => 'effective_from'])`); `$nullable` makes the *from* columns nullable for backfill scenarios.
+
+> **On overlap prevention.** Today `preventBitemporalOverlaps()` emits a covering composite index on every driver. The PostgreSQL `EXCLUDE USING gist` exclusion constraint — a true database-level guarantee — is on the roadmap. The writer's application-level overlap detection is the primary guarantee on every engine regardless, so a correct setup never produces overlaps; the index/constraint is defence in depth.
+
+### Polymorphic entities
+
+When one timeline table serves many entity types, make `temporalEntity()` a `MorphTo`, use `bitemporalMorphsFor()` in the migration, and `bitemporalMorphMany()` on each parent:
+
+```php
+// migration
+$table->bitemporalMorphsFor('owner');          // owner_type, owner_id
+
+// temporal model
+public function temporalEntity(): MorphTo
+{
+    return $this->morphTo('owner');
+}
+
+// parent
+public function statuses(): BitemporalMany
+{
+    return $this->bitemporalMorphMany(Status::class);
+}
+```
+
+## Generating a model
+
+The `make:bitemporal-model` command scaffolds the trait, the `$dateFormat`, and a `BelongsTo` `temporalEntity()`:
+
+```bash
+php artisan make:bitemporal-model ProductPrice --entity=Product
+```
+
+You still write the migration and add the relation to the parent.
+
+Next: [Reading](04-reading.md).

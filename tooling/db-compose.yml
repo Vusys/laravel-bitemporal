@@ -1,0 +1,58 @@
+# Local database backends for cross-engine coverage / debugging.
+# Mirrors the service config CI uses in .github/workflows/tests.yml.
+#
+# Host ports are deliberately high (33306 / 33307 / 15432) and bound to
+# 127.0.0.1 so they never collide with a locally-installed mysqld/postgres
+# or an ssh tunnel on the conventional ports.
+#
+# Usage:
+#   docker compose -f tooling/db-compose.yml up -d --wait     # or: docker-compose -f ...
+#
+#   DB_CONNECTION=mysql   DB_HOST=127.0.0.1 DB_PORT=33306 DB_DATABASE=testing DB_USERNAME=root     DB_PASSWORD=password vendor/bin/phpunit
+#   DB_CONNECTION=mariadb DB_HOST=127.0.0.1 DB_PORT=33307 DB_DATABASE=testing DB_USERNAME=root     DB_PASSWORD=password vendor/bin/phpunit
+#   DB_CONNECTION=pgsql   DB_HOST=127.0.0.1 DB_PORT=15432 DB_DATABASE=testing DB_USERNAME=postgres DB_PASSWORD=password vendor/bin/phpunit
+#
+# Or run the whole matrix at once:
+#   tooling/test-all-backends.sh
+#
+# Tear down with:
+#   docker compose -f tooling/db-compose.yml down -v
+#
+# Needs pdo_mysql + pdo_pgsql in the local PHP CLI (php -m | grep pdo).
+
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: testing
+    ports: ["127.0.0.1:33306:3306"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-ppassword"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  mariadb:
+    image: mariadb:lts
+    environment:
+      MARIADB_ROOT_PASSWORD: password
+      MARIADB_DATABASE: testing
+    ports: ["127.0.0.1:33307:3306"]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  pgsql:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: testing
+    ports: ["127.0.0.1:15432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d testing"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
