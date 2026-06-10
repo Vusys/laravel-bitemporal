@@ -63,9 +63,16 @@ jobs:
         run: composer require "laravel/framework:${{ matrix.laravel }}" --no-update --no-interaction --dev
 
       - name: Install dependencies
-        run: composer update --prefer-dist --no-interaction --no-progress
+        run: |
+          composer config policy.advisories.block false
+          composer update --prefer-dist --no-interaction --no-progress
 
       - name: Run tests
         run: vendor/bin/phpunit
         env:
           DB_CONNECTION: ${{ matrix.db }}
+          DB_HOST: 127.0.0.1
+          DB_DATABASE: testing
+          DB_PORT: ${{ matrix.db == 'pgsql' && '54320' || matrix.db == 'mariadb' && '33307' || '33306' }}
+          DB_USERNAME: ${{ matrix.db == 'pgsql' && 'postgres' || 'root' }}
+          DB_PASSWORD: ${{ matrix.db == 'pgsql' && 'postgres' || '' }}
