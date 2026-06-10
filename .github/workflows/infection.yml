@@ -1,41 +1,288 @@
 name: infection
 
+# Mutation testing — two modes:
+#
+# `pr` (PRs): runs in --git-diff-lines so only mutations in changed code are
+# evaluated, on SQLite. Fast enough to gate PRs; doesn't produce a project-wide
+# MSI, so doesn't publish to the dashboard.
+#
+# `full` (master push + weekly + manual): a `shard x db` matrix. Each cell
+# mutates one slice of src/ against one database backend. The `aggregate` job
+# then unions every cell — a mutant is a true gap only if it survived in *every*
+# backend that covered it — and fails the run if the union MSI drops below the
+# floor. The union MSI is also published to the Stryker dashboard when the
+# STRYKER_DASHBOARD_API_KEY secret is set.
+#
+# Why the matrix: a single unsharded run is single-threaded by default and one
+# runaway mutant (unbounded loop/recursion) previously drove a worker past the
+# runner's memory and the host SIGTERMed it (exit 143). Sharding by src/ subtree
+# + capping PHP at 2G makes such a mutant fail cleanly as a killed-by-error
+# mutant while the rest of the matrix runs in parallel. Backends differ in the
+# SQL this package generates, so a mutation can escape on one engine and be
+# caught on another — hence db is a real dimension, not just parallelism.
+
 on:
   push:
     branches: [master]
   pull_request:
   schedule:
     - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to a branch supersedes any in-flight mutation run on it.
+concurrency:
+  group: infection-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  mutation:
+  pr:
+    name: Mutation testing (PR diff)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    name: Mutation testing
-
-    # Empty unless the secret is configured. Infection only uploads to the
-    # Stryker dashboard when this key is set AND the stryker logger is enabled
-    # in infection.json5 — both are opt-in, so CI needs no secrets by default.
-    env:
-      STRYKER_DASHBOARD_API_KEY: ${{ secrets.STRYKER_DASHBOARD_API_KEY }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
         with:
+          # Infection's --git-diff-base needs the base branch fetched.
           fetch-depth: 0
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
+          extensions: dom, curl, libxml, mbstring, pdo, pdo_sqlite, bcmath
           coverage: pcov
+          # Cap PHP at 2GB so a runaway mutant fails cleanly via OOM (recorded
+          # as killed-by-error — the correct outcome) instead of taking the
+          # runner down with a host-side SIGTERM.
+          ini-values: memory_limit=2G
 
       - name: Install dependencies
         run: composer update --prefer-dist --no-interaction --no-progress
 
-      - name: Infection (PR diff mode)
-        if: github.event_name == 'pull_request'
-        run: composer infection:diff
+      - name: Run Infection (diff mode)
+        run: |
+          vendor/bin/infection \
+            --git-diff-lines \
+            --git-diff-base="origin/${{ github.base_ref }}" \
+            --logger-github \
+            --no-progress \
+            --no-interaction \
+            --threads=$(nproc)
 
-      - name: Infection (full suite)
-        if: github.event_name != 'pull_request'
-        run: composer infection
+  full:
+    # No custom `name:` — GitHub auto-appends the matrix values
+    # (`full (concerns, sqlite)` etc.), which also renders cleanly on the
+    # skipped PR path (a name containing ${{ matrix.* }} would show the literal
+    # expression when the job is skipped).
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      # Don't cancel the other cells if one fails — partial mutation data is
+      # still useful, and the aggregate job tolerates missing cells.
+      fail-fast: false
+      matrix:
+        # Shards are LOC-balanced, non-overlapping path prefixes that together
+        # cover all of src/. `--filter` matches on a substring of the file
+        # path, so anchoring each entry on `src/<Dir>/` (or an explicit
+        # `src/<File>.php`) keeps them disjoint. When adding a new top-level
+        # `src/<Dir>/` or root file it MUST be wired into one of these shards
+        # or it is silently left un-mutated.
+        shard: [concerns, writers, timeline, builder-events, rest]
+        db: [sqlite, mysql, mariadb, pgsql]
+        include:
+          # `threads` is bash — `$(nproc)` is shell-substituted at run time
+          # (matrix values flow unquoted into the run command).
+          - { shard: concerns,       threads: '$(nproc)', filter: 'src/Concerns/,src/Casts/' }
+          - { shard: writers,        threads: '$(nproc)', filter: 'src/Writers/,src/Locking/' }
+          - { shard: timeline,       threads: '$(nproc)', filter: 'src/Spell.php,src/SpellBounds.php,src/Timeline.php,src/TimelineSegment.php,src/Bitemporal.php,src/BitemporalServiceProvider.php' }
+          - { shard: builder-events, threads: '$(nproc)', filter: 'src/BitemporalBuilder.php,src/Events/,src/Boot/,src/Relations/' }
+          - { shard: rest,           threads: '$(nproc)', filter: 'src/Backfill/,src/Support/,src/Exceptions/,src/Lens/,src/Collections/,src/Database/,src/Console/,src/Facades/' }
+          # Per-db connection details. sqlite needs none; the networked
+          # backends mirror tests.yml (db `testing`, non-standard host ports,
+          # empty root password for mysql/mariadb).
+          - { db: sqlite,  db_connection: sqlite }
+          - { db: mysql,   db_connection: mysql,   db_host: '127.0.0.1', db_port: '33306', db_database: testing, db_username: root,     db_password: '' }
+          - { db: mariadb, db_connection: mariadb, db_host: '127.0.0.1', db_port: '33307', db_database: testing, db_username: root,     db_password: '' }
+          - { db: pgsql,   db_connection: pgsql,   db_host: '127.0.0.1', db_port: '54320', db_database: testing, db_username: postgres, db_password: postgres }
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: testing
+        ports: ['33306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping" --health-interval=10s
+          --health-timeout=5s --health-retries=5
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 'yes'
+          MARIADB_DATABASE: testing
+        ports: ['33307:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=5
+      pgsql:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testing
+        ports: ['54320:5432']
+        options: >-
+          --health-cmd=pg_isready --health-interval=10s
+          --health-timeout=5s --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, libxml, mbstring, pdo, pdo_sqlite, pdo_mysql, pdo_pgsql, bcmath
+          coverage: pcov
+          # See `pr` job: cap PHP at 2GB so a runaway mutant fails cleanly via
+          # OOM instead of taking down the runner. This is the direct fix for
+          # the exit-143 (host SIGTERM) failure that motivated sharding.
+          ini-values: memory_limit=2G
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Run Infection (shard ${{ matrix.shard }} / ${{ matrix.db }})
+        env:
+          DB_CONNECTION: ${{ matrix.db_connection }}
+          DB_HOST: ${{ matrix.db_host }}
+          DB_PORT: ${{ matrix.db_port }}
+          DB_DATABASE: ${{ matrix.db_database }}
+          DB_USERNAME: ${{ matrix.db_username }}
+          DB_PASSWORD: ${{ matrix.db_password }}
+        run: |
+          vendor/bin/infection \
+            --filter='${{ matrix.filter }}' \
+            --logger-github \
+            --no-progress \
+            --no-interaction \
+            --threads=${{ matrix.threads }}
+
+      # infection.json embeds the full source of every mutated file, so reduce
+      # it to a compact per-mutant status record before uploading. Lift the CLI
+      # memory_limit for the decode since the raw report can be large.
+      - name: Distil report
+        if: always()
+        run: |
+          php -d memory_limit=-1 tooling/merge-infection.php distill \
+            build/infection/infection.json \
+            "compact-${{ matrix.db }}-${{ matrix.shard }}.json" \
+            --db "${{ matrix.db }}" \
+            --shard "${{ matrix.shard }}"
+
+      - name: Upload compact report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compact-${{ matrix.db }}-${{ matrix.shard }}
+          path: compact-${{ matrix.db }}-${{ matrix.shard }}.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  aggregate:
+    name: Union across backends
+    needs: full
+    # Run even if some cells failed — a partial union beats none.
+    if: ${{ always() && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    # Package-wide MSI floor. The per-cell gate is disabled (infection.json5
+    # holds minMsi at 0) because each cell only measures a slice of src/; the
+    # real regression gate lives here, on the union across every backend.
+    # Ratchet one-way up as coverage lands; target post-1.0: 85.
+    env:
+      MIN_UNION_MSI: '50'
+
+    steps:
+      # Need the merge script and src/ (the latter for the Stryker report, which
+      # embeds source).
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Download compact reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: compact-*
+          path: compacts
+          merge-multiple: true
+
+      - name: Merge into union report
+        run: |
+          php tooling/merge-infection.php merge \
+            compacts/*.json \
+            --out-summary union-summary.md \
+            --out-escaped escaped-everywhere.txt \
+            --out-json union.json \
+            --out-stryker stryker-report.json \
+            --source-root .
+          cat union-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload union report
+        uses: actions/upload-artifact@v4
+        with:
+          name: infection-union-${{ github.run_id }}
+          path: |
+            union.json
+            union-summary.md
+            escaped-everywhere.txt
+            stryker-report.json
+          retention-days: 14
+
+      # Publish the union score to the Stryker dashboard (feeds a README badge
+      # once one is added). Best-effort: a dashboard hiccup must not fail the
+      # run, and the existing badge value survives a rejected PUT.
+      - name: Publish union MSI to Stryker dashboard
+        if: ${{ github.ref == 'refs/heads/master' }}
+        continue-on-error: true
+        env:
+          STRYKER_DASHBOARD_API_KEY: ${{ secrets.STRYKER_DASHBOARD_API_KEY }}
+        run: |
+          if [ -z "$STRYKER_DASHBOARD_API_KEY" ]; then
+            echo "No Stryker API key configured; skipping dashboard publish."
+            exit 0
+          fi
+          MSI=$(php -r 'echo json_decode(file_get_contents("union.json"), true)["msi"];')
+          echo "Publishing union MSI=${MSI} to Stryker dashboard."
+          curl --silent --show-error --fail \
+            --request PUT \
+            --header "X-Api-Key: ${STRYKER_DASHBOARD_API_KEY}" \
+            --header "Content-Type: application/json" \
+            --data "{\"mutationScore\": ${MSI}}" \
+            "https://dashboard.stryker-mutator.io/api/reports/github.com/${GITHUB_REPOSITORY}/master"
+
+      # Package-wide regression gate: fail if the union MSI fell below the floor.
+      # Runs last so the report + dashboard publish above still happen on a
+      # failing score.
+      - name: Enforce union MSI floor
+        run: |
+          MSI=$(php -r 'echo json_decode(file_get_contents("union.json"), true)["msi"];')
+          echo "Union MSI=${MSI}%  floor=${MIN_UNION_MSI}%"
+          php -r 'exit(((float) $argv[1] >= (float) $argv[2]) ? 0 : 1);' "$MSI" "$MIN_UNION_MSI" \
+            || { echo "::error::Union MSI ${MSI}% is below the ${MIN_UNION_MSI}% floor."; exit 1; }
