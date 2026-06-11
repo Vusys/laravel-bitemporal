@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\MultipleRecordsFoundException;
 use Illuminate\Support\Collection as SupportCollection;
 use Vusys\Bitemporal\Concerns\HasSpellQueries;
+use Vusys\Bitemporal\Concerns\HasTemporalDiff;
 use Vusys\Bitemporal\Concerns\HasTemporalDimensions;
 use Vusys\Bitemporal\Concerns\InteractsWithLens;
 use Vusys\Bitemporal\Exceptions\TemporalCardinalityException;
@@ -32,6 +33,7 @@ use Vusys\Bitemporal\Support\TemporalEntityMetadata;
 class BitemporalBuilder extends Builder
 {
     use HasSpellQueries;
+    use HasTemporalDiff;
     use HasTemporalDimensions;
     use InteractsWithLens;
 
