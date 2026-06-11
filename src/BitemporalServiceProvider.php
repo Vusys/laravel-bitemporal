@@ -14,6 +14,7 @@ use Vusys\Bitemporal\Console\Commands\AuditOverlapsCommand;
 use Vusys\Bitemporal\Console\Commands\AuditTableCommand;
 use Vusys\Bitemporal\Console\Commands\DiffTimelinesCommand;
 use Vusys\Bitemporal\Console\Commands\MakeBitemporalFactoryCommand;
+use Vusys\Bitemporal\Console\Commands\MakeBitemporalMigrationCommand;
 use Vusys\Bitemporal\Console\Commands\MakeBitemporalModelCommand;
 use Vusys\Bitemporal\Console\Commands\PruneIdempotencyKeysCommand;
 use Vusys\Bitemporal\Console\Commands\WarmGuardsCommand;
@@ -74,6 +75,7 @@ final class BitemporalServiceProvider extends ServiceProvider
                 AuditTableCommand::class,
                 DiffTimelinesCommand::class,
                 MakeBitemporalFactoryCommand::class,
+                MakeBitemporalMigrationCommand::class,
                 MakeBitemporalModelCommand::class,
                 PruneIdempotencyKeysCommand::class,
                 WarmGuardsCommand::class,
