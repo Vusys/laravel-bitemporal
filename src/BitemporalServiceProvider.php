@@ -9,6 +9,7 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\ServiceProvider;
+use Vusys\Bitemporal\AuditLog\TemporalAuditLogSubscriber;
 use Vusys\Bitemporal\Console\Commands\MakeBitemporalModelCommand;
 use Vusys\Bitemporal\Console\Commands\PruneIdempotencyKeysCommand;
 use Vusys\Bitemporal\Console\Commands\WarmGuardsCommand;
@@ -58,6 +59,10 @@ final class BitemporalServiceProvider extends ServiceProvider
         $events = $this->app->make(Dispatcher::class);
         $events->listen(JobProcessing::class, [AsOfJobListener::class, 'handleProcessing']);
         $events->listen(JobProcessed::class, [AsOfJobListener::class, 'handleProcessed']);
+
+        if (config('bitemporal.audit_log.enabled', false) === true) {
+            $events->subscribe(TemporalAuditLogSubscriber::class);
+        }
 
         if ($this->app->runningInConsole()) {
             $this->commands([
