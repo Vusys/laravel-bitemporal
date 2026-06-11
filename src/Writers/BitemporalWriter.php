@@ -25,6 +25,7 @@ use Vusys\Bitemporal\Events\TemporalRetractionStarting;
 use Vusys\Bitemporal\Events\TemporalTimelineSuperseded;
 use Vusys\Bitemporal\Events\TemporalTimelineSupersedingStarting;
 use Vusys\Bitemporal\Events\TemporalWriteCommitted;
+use Vusys\Bitemporal\Exceptions\TemporalDomainException;
 use Vusys\Bitemporal\Exceptions\TemporalInvalidSpellException;
 use Vusys\Bitemporal\Exceptions\TemporalMissingDimensionException;
 use Vusys\Bitemporal\Exceptions\TemporalOverlapException;
@@ -658,11 +659,29 @@ final readonly class BitemporalWriter
             $maxInstant = CarbonImmutable::parse($max, $this->timezone());
 
             if (! $now->greaterThan($maxInstant)) {
+                $driftMs = (int) $now->diffInMilliseconds($maxInstant, true);
+                $tolerance = $this->intConfig('bitemporal.writes.clock_skew_tolerance_ms', 60000);
+
+                if ($driftMs > $tolerance) {
+                    throw TemporalDomainException::clockSkew(
+                        $this->entityLabel(),
+                        $maxInstant->format('Y-m-d H:i:s.u'),
+                        $now->format('Y-m-d H:i:s.u'),
+                        $driftMs,
+                        $tolerance,
+                    );
+                }
+
                 return $maxInstant->addMicrosecond();
             }
         }
 
         return $now;
+    }
+
+    private function entityLabel(): string
+    {
+        return $this->related::class.'#'.self::modelKey($this->entity);
     }
 
     private function assertNoCurrentOverlaps(): void

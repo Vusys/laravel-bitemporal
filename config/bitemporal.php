@@ -36,6 +36,7 @@ return [
         'lock_strategy' => 'parent_row',
         'parent_lock_timeout_ms' => 5000,
         'deadlock_retry_attempts' => 1,
+        'clock_skew_tolerance_ms' => 60000,
         'idempotency_window' => '7 days',
         'idempotency_auto_prune' => true,
     ],
