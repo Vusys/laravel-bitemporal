@@ -16,6 +16,11 @@ final class TemporalConfigurationException extends TemporalException
         return new self("temporal entity scope expects a Model, MorphContext, Collection, or array; got {$given}");
     }
 
+    public static function disabledPivotMethod(string $method, string $useInstead): self
+    {
+        return new self("{$method}() is disabled on a temporal pivot relation because it would destroy history; use {$useInstead} instead");
+    }
+
     /**
      * @param  array<string, string>  $failures  guard short-name => message
      */
