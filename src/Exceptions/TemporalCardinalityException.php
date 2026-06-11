@@ -21,6 +21,16 @@ final class TemporalCardinalityException extends TemporalException
         return $exception;
     }
 
+    public static function noAssignmentToCorrect(string $tuple): self
+    {
+        return new self("correctAssignment requires an existing assignment to correct; none found for tuple {$tuple}. Use attachFor to create the assignment.");
+    }
+
+    public static function noAssignmentToDetach(string $tuple): self
+    {
+        return new self("detachAt requires an open-ended current assignment to end; none found for tuple {$tuple}.");
+    }
+
     public function wasNoneFound(): bool
     {
         return $this->noneFound;

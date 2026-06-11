@@ -51,7 +51,18 @@ final readonly class BitemporalWriter
     private array $entityScope;
 
     /**
+     * The effective declared dimension columns: the model's own
+     * `$temporalDimensions` plus any folded-in columns (e.g. a pivot's
+     * related-key, which behaves like a built-in dimension).
+     *
+     * @var array<int, string>
+     */
+    private array $declaredDimensions;
+
+    /**
      * @param  array<string, mixed>  $dimensions
+     * @param  array<string, mixed>|null  $entityScope  explicit entity scope (pivots inject {parent_fk => id}); resolved from temporalEntity() when null
+     * @param  array<int, string>  $extraDimensionColumns  columns folded into the dimension tuple beyond the model's declared dimensions
      */
     public function __construct(
         private Model $related,
@@ -60,21 +71,16 @@ final readonly class BitemporalWriter
         private WriteLocker $locker,
         private TimelineSplitter $splitter,
         private Dispatcher $events,
+        ?array $entityScope = null,
+        array $extraDimensionColumns = [],
     ) {
         if (! method_exists($related, 'temporalMetadata')) {
             throw new TemporalInvalidSpellException($related::class.' is not a temporal model');
         }
 
         $this->meta = $related->temporalMetadata();
-        $this->entityScope = $this->resolveEntityScope();
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function resolveEntityScope(): array
-    {
-        return EntityScope::resolve($this->related, $this->entity);
+        $this->entityScope = $entityScope ?? EntityScope::resolve($this->related, $this->entity);
+        $this->declaredDimensions = array_values(array_unique([...$this->meta->dimensions, ...$extraDimensionColumns]));
     }
 
     /**
@@ -85,7 +91,7 @@ final readonly class BitemporalWriter
     {
         $from = $this->instant($validFrom);
         $this->assertForwardDated($from);
-        $attributes = DimensionValidator::reconcileAttributes($this->meta->dimensions, $this->dimensions, $attributes);
+        $attributes = DimensionValidator::reconcileAttributes($this->declaredDimensions, $this->dimensions, $attributes);
 
         $committed = $this->run(
             fn (Timeline $current): Spell => $this->forwardWindow($current, $from),
@@ -114,7 +120,7 @@ final readonly class BitemporalWriter
             $validFrom === null ? null : $this->instant($validFrom),
             $validTo === null ? null : $this->instant($validTo),
         );
-        $attributes = DimensionValidator::reconcileAttributes($this->meta->dimensions, $this->dimensions, $attributes);
+        $attributes = DimensionValidator::reconcileAttributes($this->declaredDimensions, $this->dimensions, $attributes);
 
         $committed = $this->run(
             static fn (): Spell => $window,
@@ -233,7 +239,7 @@ final readonly class BitemporalWriter
     private function run(\Closure $windowResolver, \Closure $transform, array $attributes, ?bool $compact, \Closure $starting, \Closure $committed, ?array $expectedCurrentAttributes = null): TemporalWriteCommitted
     {
         $this->assertNoForbiddenAttributes($attributes);
-        DimensionValidator::assertComplete($this->meta->dimensions, $this->dimensions);
+        DimensionValidator::assertComplete($this->declaredDimensions, $this->dimensions);
 
         $result = $this->connection()->transaction(function () use ($windowResolver, $transform, $attributes, $compact, $starting, $committed, $expectedCurrentAttributes): TemporalWriteCommitted {
             $this->locker->lockFor($this->entity, $this->dimensions, $this->parentLockTimeout());
@@ -589,7 +595,7 @@ final readonly class BitemporalWriter
             $this->meta->recordedFrom,
             $this->meta->recordedTo,
             $this->meta->isRetraction,
-            ...$this->meta->dimensions,
+            ...$this->declaredDimensions,
             ...(is_array($excluded) ? array_values(array_filter($excluded, is_string(...))) : []),
         ];
     }
