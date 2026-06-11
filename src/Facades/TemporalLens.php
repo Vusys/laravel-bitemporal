@@ -15,6 +15,9 @@ use Vusys\Bitemporal\Lens\LensStack;
  * @method static int depth()
  * @method static void reset()
  * @method static void assertEmpty()
+ * @method static mixed withoutBootGuards(\Closure $callback)
+ * @method static \Vusys\Bitemporal\Boot\BootDiagnosticsReport warmGuards(array<int, class-string<\Illuminate\Database\Eloquent\Model>> $models)
+ * @method static \Vusys\Bitemporal\Boot\BootDiagnosticsReport warmGuardsOrFail(array<int, class-string<\Illuminate\Database\Eloquent\Model>> $models)
  *
  * @see LensStack
  */

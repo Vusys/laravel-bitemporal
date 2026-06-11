@@ -7,9 +7,11 @@ namespace Vusys\Bitemporal;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
 use Vusys\Bitemporal\Boot\BootGuards;
+use Vusys\Bitemporal\Boot\BootLints;
 use Vusys\Bitemporal\Collections\BitemporalCollection;
 use Vusys\Bitemporal\Concerns\HasTemporalCasts;
 use Vusys\Bitemporal\Concerns\HasTemporalEntity;
+use Vusys\Bitemporal\Lens\LensStack;
 
 /**
  * Marks an Eloquent model as temporal. The model must define a
@@ -38,6 +40,12 @@ trait Bitemporal
             return;
         }
 
+        // Closure-scoped suppression (TemporalLens::withoutBootGuards) must not
+        // cache — the guards still run on a later, un-suppressed boot.
+        if (resolve(LensStack::class)->bootGuardsSuppressed()) {
+            return;
+        }
+
         if (config('bitemporal.guards.enabled', true) === false) {
             self::$temporalGuardsRun[static::class] = true;
 
@@ -45,6 +53,7 @@ trait Bitemporal
         }
 
         BootGuards::default()->runAgainst($this);
+        BootLints::default()->runAgainst($this);
 
         self::$temporalGuardsRun[static::class] = true;
     }
