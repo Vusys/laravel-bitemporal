@@ -9,6 +9,10 @@ parameters:
     reportUnmatchedIgnoredErrors: false
     bootstrapFiles:
         - phpstan-bootstrap.php
+    excludePaths:
+        # Optional Pest glue; references Pest's expect()/intercept()/extend()
+        # which only exist when the host project installs Pest (not a dependency).
+        - src/Testing/PestExpectations.php
     stubFiles:
         - phpstan-stubs/Blueprint.stub
         - phpstan-stubs/BitemporalRelation.stub

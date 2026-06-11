@@ -16,6 +16,7 @@ use Vusys\Bitemporal\Lens\LensStack;
 use Vusys\Bitemporal\Locking\AdvisoryLocker;
 use Vusys\Bitemporal\Locking\ParentRowLocker;
 use Vusys\Bitemporal\Locking\WriteLocker;
+use Vusys\Bitemporal\Testing\PestExpectations;
 
 final class BitemporalServiceProvider extends ServiceProvider
 {
@@ -39,6 +40,10 @@ final class BitemporalServiceProvider extends ServiceProvider
     public function boot(): void
     {
         TemporalBlueprintMacros::register();
+
+        if ($this->app->runningUnitTests()) {
+            PestExpectations::register();
+        }
 
         $events = $this->app->make(Dispatcher::class);
         $events->listen(JobProcessing::class, [AsOfJobListener::class, 'handleProcessing']);

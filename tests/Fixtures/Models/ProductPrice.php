@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Vusys\Bitemporal\Tests\Fixtures\Models;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Vusys\Bitemporal\Bitemporal;
+use Vusys\Bitemporal\Tests\Fixtures\Factories\ProductPriceFactory;
 
 /**
  * @property int $id
@@ -24,6 +26,9 @@ class ProductPrice extends Model
 {
     use Bitemporal;
 
+    /** @use HasFactory<ProductPriceFactory> */
+    use HasFactory;
+
     protected $table = 'product_price_versions';
 
     protected $guarded = [];
@@ -36,6 +41,11 @@ class ProductPrice extends Model
     protected $casts = [
         'amount' => 'integer',
     ];
+
+    protected static function newFactory(): ProductPriceFactory
+    {
+        return ProductPriceFactory::new();
+    }
 
     /**
      * @return BelongsTo<Product, $this>
