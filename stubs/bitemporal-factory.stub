@@ -1,0 +1,28 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ factoryNamespace }};
+
+use {{ namespacedModel }};
+use Vusys\Bitemporal\Factories\BitemporalFactory;
+
+/**
+ * @extends BitemporalFactory<{{ model }}>
+ */
+class {{ class }} extends BitemporalFactory
+{
+    protected $model = {{ model }}::class;
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        return [
+            // domain attributes — fill in as needed
+            // valid_from / valid_to / recorded_from / recorded_to are populated
+            // by BitemporalFactory's states (validFrom(), openEnded(), …).
+        ];
+    }
+}

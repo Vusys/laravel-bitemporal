@@ -10,6 +10,10 @@ use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\ServiceProvider;
 use Vusys\Bitemporal\AuditLog\TemporalAuditLogSubscriber;
+use Vusys\Bitemporal\Console\Commands\AuditOverlapsCommand;
+use Vusys\Bitemporal\Console\Commands\AuditTableCommand;
+use Vusys\Bitemporal\Console\Commands\DiffTimelinesCommand;
+use Vusys\Bitemporal\Console\Commands\MakeBitemporalFactoryCommand;
 use Vusys\Bitemporal\Console\Commands\MakeBitemporalModelCommand;
 use Vusys\Bitemporal\Console\Commands\PruneIdempotencyKeysCommand;
 use Vusys\Bitemporal\Console\Commands\WarmGuardsCommand;
@@ -66,6 +70,10 @@ final class BitemporalServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->commands([
+                AuditOverlapsCommand::class,
+                AuditTableCommand::class,
+                DiffTimelinesCommand::class,
+                MakeBitemporalFactoryCommand::class,
                 MakeBitemporalModelCommand::class,
                 PruneIdempotencyKeysCommand::class,
                 WarmGuardsCommand::class,
@@ -74,6 +82,10 @@ final class BitemporalServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../database/migrations' => $this->app->databasePath('migrations'),
             ], 'bitemporal-migrations');
+
+            $this->publishes([
+                __DIR__.'/../stubs' => $this->app->basePath('stubs/vendor/bitemporal'),
+            ], 'bitemporal-stubs');
 
             $this->publishes([
                 __DIR__.'/../config/bitemporal.php' => $this->app->configPath('bitemporal.php'),
