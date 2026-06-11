@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Vusys\Bitemporal;
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\ServiceProvider;
 use Vusys\Bitemporal\Console\Commands\MakeBitemporalModelCommand;
+use Vusys\Bitemporal\Console\Commands\PruneIdempotencyKeysCommand;
 use Vusys\Bitemporal\Console\Commands\WarmGuardsCommand;
 use Vusys\Bitemporal\Database\TemporalBlueprintMacros;
 use Vusys\Bitemporal\Lens\AsOfJobListener;
@@ -41,8 +43,16 @@ final class BitemporalServiceProvider extends ServiceProvider
     {
         TemporalBlueprintMacros::register();
 
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+
         if ($this->app->runningUnitTests()) {
             PestExpectations::register();
+        }
+
+        if (config('bitemporal.writes.idempotency_auto_prune', true) === true) {
+            $this->callAfterResolving(Schedule::class, static function (Schedule $schedule): void {
+                $schedule->command(PruneIdempotencyKeysCommand::class)->daily();
+            });
         }
 
         $events = $this->app->make(Dispatcher::class);
@@ -52,8 +62,13 @@ final class BitemporalServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 MakeBitemporalModelCommand::class,
+                PruneIdempotencyKeysCommand::class,
                 WarmGuardsCommand::class,
             ]);
+
+            $this->publishes([
+                __DIR__.'/../database/migrations' => $this->app->databasePath('migrations'),
+            ], 'bitemporal-migrations');
 
             $this->publishes([
                 __DIR__.'/../config/bitemporal.php' => $this->app->configPath('bitemporal.php'),
