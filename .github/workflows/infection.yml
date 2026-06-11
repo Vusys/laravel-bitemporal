@@ -211,9 +211,11 @@ jobs:
     # Package-wide MSI floor. The per-cell gate is disabled (infection.json5
     # holds minMsi at 0) because each cell only measures a slice of src/; the
     # real regression gate lives here, on the union across every backend.
-    # Ratchet one-way up as coverage lands; target post-1.0: 85.
+    # Ratchet one-way up as coverage lands; target post-1.0: 85. Measured
+    # covered MSI sits near 69%, so this floor has headroom; raise it as the
+    # writer/splitter/dimension mutation gaps are closed.
     env:
-      MIN_UNION_MSI: '50'
+      MIN_UNION_MSI: '55'
 
     steps:
       # Need the merge script and src/ (the latter for the Stryker report, which
