@@ -93,6 +93,7 @@ Full user guide in [`docs/`](docs/README.md):
 - [Concepts](docs/01-concepts.md) · [Installation](docs/02-installation.md) · [Defining models](docs/03-defining-models.md)
 - [Reading](docs/04-reading.md) · [Writing](docs/05-writing.md) · [Dimensions](docs/06-dimensions.md)
 - [As-of lens](docs/07-as-of-lens.md) · [Events](docs/08-events.md) · [Configuration](docs/09-configuration.md) · [Testing](docs/10-testing.md)
+- [Temporal pivots](docs/11-pivots.md) · [Diffs and timelines](docs/12-diffs-and-timelines.md) · [Boot guards and lints](docs/13-boot-guards-and-lints.md) · [Commands](docs/14-commands.md) · [Exception catalogue](docs/09a-exception-catalogue.md)
 
 ## Requirements
 
@@ -102,9 +103,9 @@ Full user guide in [`docs/`](docs/README.md):
 
 ## Status
 
-The package is pre-1.0 and built from a detailed internal specification. The read side, the core write side (change / correct / retract / end / supersede / hard-delete), dimensions, the as-of lens, polymorphic entities, backfill, optimistic concurrency, lock strategies, the migration macros, and the first generator are implemented and green on SQLite.
+The package is pre-1.0 and built from a detailed internal specification. The read side, the core write side (change / correct / retract / end / supersede / hard-delete), dimensions, the as-of lens, polymorphic entities, backfill, optimistic concurrency, lock strategies, and the migration macros are implemented and green on SQLite — along with the rest of the SQLite-verifiable 1.0 surface: temporal pivots (`BitemporalBelongsToMany`), idempotency keys, the first-party audit-log subscriber, diff and timeline helpers, the testing helpers and factories, boot guards and advisory lints, and the full generator/command set (`make:bitemporal-*`, `bitemporal:audit-*`, `bitemporal:diff-timelines`, `bitemporal:warm-guards`, `bitemporal:prune-idempotency-keys`).
 
-Still in progress: temporal pivots (`BitemporalBelongsToMany`), idempotency keys, a first-party audit-log subscriber, the PostgreSQL `EXCLUDE` / MySQL sentinel database grammars (verified against real engines in CI), dedicated testing helpers and factories, diff helpers, and the remaining generators.
+Still in progress: the PostgreSQL `EXCLUDE USING gist` / MySQL sentinel database grammars (verified against real engines in CI), the remaining `Schema`-introspection boot guards, streaming backfill, temporal metrics, and the docs-site / release work.
 
 ## Development
 

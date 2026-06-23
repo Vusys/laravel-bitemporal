@@ -23,6 +23,12 @@ return [
         'enabled' => true,
     ],
 
+    'audit_log' => [
+        'enabled' => false,
+        'table' => 'temporal_audit_log',
+        'connection' => null,
+    ],
+
     'writes' => [
         'compact_adjacent_segments' => true,
         'compaction_excluded_columns' => ['created_at', 'updated_at'],
@@ -31,6 +37,9 @@ return [
         'lock_strategy' => 'parent_row',
         'parent_lock_timeout_ms' => 5000,
         'deadlock_retry_attempts' => 1,
+        'clock_skew_tolerance_ms' => 60000,
+        'idempotency_window' => '7 days',
+        'idempotency_auto_prune' => true,
     ],
 ];
 ```
@@ -48,7 +57,15 @@ The default period column names, applied to every temporal model. Override globa
 
 ## `guards`
 
-- **`enabled`** — run the boot guards that validate each temporal model's configuration (column presence, relation type, casts, …) the first time it is used. Leave `true` in development. You can warm them ahead of time with `php artisan bitemporal:warm-guards App\\Models\\ProductPrice` to fail fast on deploy rather than on first request.
+- **`enabled`** — run the boot guards (and advisory lints) that validate each temporal model's configuration (column presence, relation type, casts, …) the first time it is used. Leave `true` in development. You can warm them ahead of time with `php artisan bitemporal:warm-guards "App\\Models\\ProductPrice"` to fail fast on deploy rather than on first request. See [Boot guards and lints](13-boot-guards-and-lints.md).
+
+## `audit_log`
+
+The first-party audit subscriber, off by default. See [Events](08-events.md#the-audit-log).
+
+- **`enabled`** — when `true`, every committed write is persisted to the audit table. Opt-in.
+- **`table`** — the audit table name. Publish and run the package migrations to create it.
+- **`connection`** — the database connection to write audit rows on; `null` uses the default connection.
 
 ## `writes`
 
@@ -62,5 +79,8 @@ The default period column names, applied to every temporal model. Override globa
   - `custom` — the package binds nothing; you provide your own `Vusys\Bitemporal\Locking\WriteLocker` implementation in the container.
 - **`parent_lock_timeout_ms`** — how long to wait for the lock before failing.
 - **`deadlock_retry_attempts`** — how many times to retry the write transaction on a deadlock.
+- **`clock_skew_tolerance_ms`** — how far the host clock may regress below the latest recorded instant before a write throws `TemporalDomainException` (clock skew). Guards against a node whose clock has gone backwards corrupting the recorded axis. Default 60 s.
+- **`idempotency_window`** — how long an [idempotency key](05-writing.md#idempotent-writes) is retained (a relative-date string, e.g. `'7 days'`). After this, a replayed key no longer matches and the write runs again.
+- **`idempotency_auto_prune`** — when `true`, the package schedules `bitemporal:prune-idempotency-keys` to run `daily()`. Turn off if you manage the schedule yourself.
 
 Next: [Testing](10-testing.md).
