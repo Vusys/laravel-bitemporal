@@ -41,7 +41,7 @@ final readonly class TimelineSegment
      */
     public function hasSameDimensionsAs(TimelineSegment $other, array $dimensionColumns): bool
     {
-        return array_all($dimensionColumns, fn ($column): bool => AttributeEquality::equals($this->attributes[$column] ?? null, $other->attributes[$column] ?? null));
+        return array_all($dimensionColumns, fn (string $column): bool => AttributeEquality::equals($this->attributes[$column] ?? null, $other->attributes[$column] ?? null));
     }
 
     public function withValidSpell(Spell $spell): self

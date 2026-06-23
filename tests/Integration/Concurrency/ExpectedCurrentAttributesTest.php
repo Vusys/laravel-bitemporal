@@ -26,7 +26,6 @@ final class ExpectedCurrentAttributesTest extends IntegrationTestCase
         $product->prices()->correct(
             attributes: ['amount' => 1200],
             validFrom: '2026-04-01',
-            validTo: null,
             expectedCurrentAttributes: ['amount' => 1000],
         );
 
@@ -45,7 +44,6 @@ final class ExpectedCurrentAttributesTest extends IntegrationTestCase
         $product->prices()->correct(
             attributes: ['amount' => 1200],
             validFrom: '2026-04-01',
-            validTo: null,
             expectedCurrentAttributes: ['amount' => 999],
         );
     }
