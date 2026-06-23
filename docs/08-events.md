@@ -58,7 +58,44 @@ Event::listen(function (TemporalCorrectionCommitted $e) {
 });
 ```
 
-A first-party audit-log subscriber that persists every committed write to a table is on the roadmap; until then these events are the integration point for your own audit logging.
+## The audit log
+
+The package ships a first-party subscriber that persists every committed write to a table, so you get a durable audit trail without writing your own listener. It is **opt-in** — enable it under `audit_log` in the config (see [Configuration](09-configuration.md)):
+
+```php
+'audit_log' => [
+    'enabled' => true,
+    'table' => 'temporal_audit_log',
+    'connection' => null,
+],
+```
+
+Publish and run the package migrations to create `temporal_audit_log`, then every committed write — change, correction, retraction, supersede, backfill, and hard-delete — lands one row:
+
+| Column | Holds |
+| --- | --- |
+| `event_class` | the committed event's class basename (e.g. `TemporalCorrectionCommitted`) |
+| `model`, `entity_type`, `entity_id` | the temporal model and the entity it was about |
+| `dimensions` | the dimension tuple in force (JSON) |
+| `payload` | operation detail: `closed_ids` / `inserted_ids` / `deleted_ids` and `compacted` (JSON) |
+| `recorded_at` | the write's recorded instant |
+| `observed_at` | wall-clock time the audit row was inserted |
+
+The subscriber writes **after** the temporal transaction commits, in a separate transaction. If that audit insert fails, the temporal write is **not** rolled back — it already committed — and a `TemporalAuditLogWriteFailed` event fires so you can alert on it:
+
+```php
+use Vusys\Bitemporal\Events\TemporalAuditLogWriteFailed;
+
+Event::listen(function (TemporalAuditLogWriteFailed $e) {
+    Log::error('temporal audit write failed', ['event' => $e]);
+});
+```
+
+If you want different audit behaviour, leave the subscriber off and listen to the committed events directly — they carry the same information.
+
+## The boot-lint event
+
+`TemporalBootLintRaised` fires when a model trips an advisory configuration lint at boot. It is the hook for surfacing those warnings in your own logging or CI. See [Boot guards and lints](13-boot-guards-and-lints.md).
 
 > By default the package does **not** fire Eloquent model events (`saved`, `created`, …) for the rows it writes — temporal rows are managed by the writer, not by ordinary model saves. Enable them with `writes.fire_eloquent_events = true` if you rely on model observers.
 

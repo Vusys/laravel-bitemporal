@@ -79,6 +79,20 @@ $product->prices()->correct(
 );
 ```
 
+## Idempotent writes
+
+When a write may be retried — a queued job that can run twice, a webhook delivered more than once — pass an `idempotencyKey`. The first call with a given key runs normally; a later call with the **same key and the same parameters** is a no-op that returns the original committed event (same `recordedAt`, no new rows). A later call with the same key but **different parameters** throws `TemporalWriteConflictException`, surfacing the mistake instead of silently double-applying.
+
+```php
+$product->prices()->correct(
+    attributes: ['amount' => 12.00],
+    validFrom: '2026-02-01',
+    idempotencyKey: 'price-sync:job-42',
+);
+```
+
+`idempotencyKey` is accepted by `changeEffectiveFrom()` and `correct()`. Keys are namespaced per `(model, entity)`, stored in `temporal_idempotency_keys`, and retained for `writes.idempotency_window` (default 7 days). With `writes.idempotency_auto_prune` on (the default) the package prunes expired keys daily; see [`bitemporal:prune-idempotency-keys`](14-commands.md#bitemporalprune-idempotency-keys) and [Configuration](09-configuration.md).
+
 ## A note on scoping writes
 
 A write is scoped to the relation's entity (and its dimensions, if any). Adding a raw `where()` to the query before a write is rejected with `TemporalMissingDimensionException` — the writer cannot reason about an arbitrary predicate. To scope to an independent timeline, declare it as a dimension and use `forDimensions()` (see [Dimensions](06-dimensions.md)).

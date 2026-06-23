@@ -127,14 +127,24 @@ public function statuses(): BitemporalMany
 }
 ```
 
-## Generating a model
+## Many-to-many timelines
 
-The `make:bitemporal-model` command scaffolds the trait, the `$dateFormat`, and a `BelongsTo` `temporalEntity()`:
+A many-to-many assignment that is itself effective-dated — which roles a user held, and when — is modelled with a temporal pivot via `bitemporalBelongsToMany()`. See [Temporal pivots](11-pivots.md).
+
+## Generators
+
+Three commands scaffold the moving parts (full reference in [Commands](14-commands.md)):
 
 ```bash
 php artisan make:bitemporal-model ProductPrice --entity=Product
+php artisan make:bitemporal-migration create_product_prices_table --model=ProductPrice
+php artisan make:bitemporal-factory ProductPriceFactory --model=ProductPrice
 ```
 
-You still write the migration and add the relation to the parent.
+- `make:bitemporal-model` scaffolds the trait, the `$dateFormat`, and a `BelongsTo` `temporalEntity()`.
+- `make:bitemporal-migration` scaffolds the migration pre-filled with the Blueprint macros above (add `--temporal-only` for an effective-dated-only table).
+- `make:bitemporal-factory` scaffolds a `BitemporalFactory` for tests (see [Testing](10-testing.md#factories)).
+
+You still fill in the domain columns and add the relation to the parent.
 
 Next: [Reading](04-reading.md).

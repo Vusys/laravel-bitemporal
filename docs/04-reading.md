@@ -90,6 +90,15 @@ $prices->keyByTemporalEntityReference();   // ["Type:id" => model] — safe acro
 $prices->groupByTemporalEntity();          // ["Type:id" => Collection<model>]
 ```
 
+## Materialising a whole timeline
+
+When you want the entity's history as an ordered, non-overlapping value object rather than a flat row set, end the query with `asTimeline()`; for every physical row (including superseded beliefs) in canonical order, use `fullHistory()`. Both — and the diff helpers that compare two points on the recorded axis — are covered in [Diffs and timelines](12-diffs-and-timelines.md).
+
+```php
+$timeline = $product->prices()->currentKnowledge()->asTimeline();
+$timeline->at($date)?->attributes;   // the segment covering an instant
+```
+
 ## Bypassing the ambient lens
 
 If you use the [as-of lens](07-as-of-lens.md) to apply a point-in-time view to a whole block of code, a single query can opt out of it with `withoutLens()`:
