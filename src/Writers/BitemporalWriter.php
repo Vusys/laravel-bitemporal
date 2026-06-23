@@ -9,6 +9,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Vusys\Bitemporal\BitemporalBuilder;
 use Vusys\Bitemporal\Events\TemporalChangeCommitted;
 use Vusys\Bitemporal\Events\TemporalChangeStarting;
@@ -24,10 +25,12 @@ use Vusys\Bitemporal\Events\TemporalRetractionStarting;
 use Vusys\Bitemporal\Events\TemporalTimelineSuperseded;
 use Vusys\Bitemporal\Events\TemporalTimelineSupersedingStarting;
 use Vusys\Bitemporal\Events\TemporalWriteCommitted;
+use Vusys\Bitemporal\Exceptions\TemporalDomainException;
 use Vusys\Bitemporal\Exceptions\TemporalInvalidSpellException;
 use Vusys\Bitemporal\Exceptions\TemporalMissingDimensionException;
 use Vusys\Bitemporal\Exceptions\TemporalOverlapException;
 use Vusys\Bitemporal\Exceptions\TemporalWriteConflictException;
+use Vusys\Bitemporal\Idempotency\IdempotencyStore;
 use Vusys\Bitemporal\Locking\WriteLocker;
 use Vusys\Bitemporal\Spell;
 use Vusys\Bitemporal\Support\AttributeEquality;
@@ -51,7 +54,18 @@ final readonly class BitemporalWriter
     private array $entityScope;
 
     /**
+     * The effective declared dimension columns: the model's own
+     * `$temporalDimensions` plus any folded-in columns (e.g. a pivot's
+     * related-key, which behaves like a built-in dimension).
+     *
+     * @var array<int, string>
+     */
+    private array $declaredDimensions;
+
+    /**
      * @param  array<string, mixed>  $dimensions
+     * @param  array<string, mixed>|null  $entityScope  explicit entity scope (pivots inject {parent_fk => id}); resolved from temporalEntity() when null
+     * @param  array<int, string>  $extraDimensionColumns  columns folded into the dimension tuple beyond the model's declared dimensions
      */
     public function __construct(
         private Model $related,
@@ -60,32 +74,27 @@ final readonly class BitemporalWriter
         private WriteLocker $locker,
         private TimelineSplitter $splitter,
         private Dispatcher $events,
+        ?array $entityScope = null,
+        array $extraDimensionColumns = [],
     ) {
         if (! method_exists($related, 'temporalMetadata')) {
             throw new TemporalInvalidSpellException($related::class.' is not a temporal model');
         }
 
         $this->meta = $related->temporalMetadata();
-        $this->entityScope = $this->resolveEntityScope();
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function resolveEntityScope(): array
-    {
-        return EntityScope::resolve($this->related, $this->entity);
+        $this->entityScope = $entityScope ?? EntityScope::resolve($this->related, $this->entity);
+        $this->declaredDimensions = array_values(array_unique([...$this->meta->dimensions, ...$extraDimensionColumns]));
     }
 
     /**
      * @param  array<string, mixed>  $attributes
      * @param  array<string, mixed>|null  $expectedCurrentAttributes
      */
-    public function changeEffectiveFrom(array $attributes, CarbonInterface|string $validFrom, ?bool $compact = null, ?array $expectedCurrentAttributes = null): TemporalChangeCommitted
+    public function changeEffectiveFrom(array $attributes, CarbonInterface|string $validFrom, ?bool $compact = null, ?array $expectedCurrentAttributes = null, ?string $idempotencyKey = null): TemporalChangeCommitted
     {
         $from = $this->instant($validFrom);
         $this->assertForwardDated($from);
-        $attributes = DimensionValidator::reconcileAttributes($this->meta->dimensions, $this->dimensions, $attributes);
+        $attributes = DimensionValidator::reconcileAttributes($this->declaredDimensions, $this->dimensions, $attributes);
 
         $committed = $this->run(
             fn (Timeline $current): Spell => $this->forwardWindow($current, $from),
@@ -97,6 +106,9 @@ final readonly class BitemporalWriter
             fn (Spell $window): object => new TemporalChangeStarting($this->related::class, $this->entity, $this->dimensions, $window),
             fn (CarbonImmutable $at, array $closed, array $inserted, bool $compacted): TemporalWriteCommitted => new TemporalChangeCommitted($this->related::class, $this->entity, $this->dimensions, $at, $closed, $inserted, $compacted),
             $expectedCurrentAttributes,
+            $idempotencyKey,
+            'changeEffectiveFrom',
+            ['attributes' => $attributes, 'validFrom' => $from->format('Y-m-d H:i:s.u'), 'validTo' => null],
         );
 
         return $committed instanceof TemporalChangeCommitted
@@ -108,13 +120,13 @@ final readonly class BitemporalWriter
      * @param  array<string, mixed>  $attributes
      * @param  array<string, mixed>|null  $expectedCurrentAttributes
      */
-    public function correct(array $attributes, CarbonInterface|string|null $validFrom = null, CarbonInterface|string|null $validTo = null, ?bool $compact = null, ?array $expectedCurrentAttributes = null): TemporalCorrectionCommitted
+    public function correct(array $attributes, CarbonInterface|string|null $validFrom = null, CarbonInterface|string|null $validTo = null, ?bool $compact = null, ?array $expectedCurrentAttributes = null, ?string $idempotencyKey = null): TemporalCorrectionCommitted
     {
         $window = new Spell(
             $validFrom === null ? null : $this->instant($validFrom),
             $validTo === null ? null : $this->instant($validTo),
         );
-        $attributes = DimensionValidator::reconcileAttributes($this->meta->dimensions, $this->dimensions, $attributes);
+        $attributes = DimensionValidator::reconcileAttributes($this->declaredDimensions, $this->dimensions, $attributes);
 
         $committed = $this->run(
             static fn (): Spell => $window,
@@ -126,6 +138,9 @@ final readonly class BitemporalWriter
             fn (Spell $w): object => new TemporalCorrectionStarting($this->related::class, $this->entity, $this->dimensions, $w),
             fn (CarbonImmutable $at, array $closed, array $inserted, bool $compacted): TemporalWriteCommitted => new TemporalCorrectionCommitted($this->related::class, $this->entity, $this->dimensions, $at, $closed, $inserted, $compacted),
             $expectedCurrentAttributes,
+            $idempotencyKey,
+            'correct',
+            ['attributes' => $attributes, 'validFrom' => $window->from?->format('Y-m-d H:i:s.u'), 'validTo' => $window->to?->format('Y-m-d H:i:s.u')],
         );
 
         return $committed instanceof TemporalCorrectionCommitted
@@ -229,11 +244,20 @@ final readonly class BitemporalWriter
      * @param  \Closure(Spell): object  $starting
      * @param  \Closure(CarbonImmutable, array<int, Model>, array<int, Model>, bool): TemporalWriteCommitted  $committed
      * @param  array<string, mixed>|null  $expectedCurrentAttributes
+     * @param  array<string, mixed>  $idempotencyInputs  canonical inputs hashed for replay detection
      */
-    private function run(\Closure $windowResolver, \Closure $transform, array $attributes, ?bool $compact, \Closure $starting, \Closure $committed, ?array $expectedCurrentAttributes = null): TemporalWriteCommitted
+    private function run(\Closure $windowResolver, \Closure $transform, array $attributes, ?bool $compact, \Closure $starting, \Closure $committed, ?array $expectedCurrentAttributes = null, ?string $idempotencyKey = null, string $operation = '', array $idempotencyInputs = []): TemporalWriteCommitted
     {
         $this->assertNoForbiddenAttributes($attributes);
-        DimensionValidator::assertComplete($this->meta->dimensions, $this->dimensions);
+        DimensionValidator::assertComplete($this->declaredDimensions, $this->dimensions);
+
+        if ($idempotencyKey !== null) {
+            $replay = $this->replayIdempotent($idempotencyKey, $operation, $idempotencyInputs, $committed);
+
+            if ($replay instanceof TemporalWriteCommitted) {
+                return $replay;
+            }
+        }
 
         $result = $this->connection()->transaction(function () use ($windowResolver, $transform, $attributes, $compact, $starting, $committed, $expectedCurrentAttributes): TemporalWriteCommitted {
             $this->locker->lockFor($this->entity, $this->dimensions, $this->parentLockTimeout());
@@ -291,12 +315,113 @@ final readonly class BitemporalWriter
             throw new TemporalInvalidSpellException('unexpected write result');
         }
 
+        if ($idempotencyKey !== null) {
+            $this->recordIdempotent($idempotencyKey, $operation, $idempotencyInputs, $result);
+        }
+
         // The transaction has committed by the time control returns here; firing
         // the committed event now keeps audit-log subscribers outside the write
         // transaction (matching DB::afterCommit semantics for top-level writes).
         $this->events->dispatch($result);
 
         return $result;
+    }
+
+    /**
+     * @param  array<string, mixed>  $inputs
+     * @param  \Closure(CarbonImmutable, array<int, Model>, array<int, Model>, bool): TemporalWriteCommitted  $committed
+     */
+    private function replayIdempotent(string $key, string $operation, array $inputs, \Closure $committed): ?TemporalWriteCommitted
+    {
+        $cached = $this->idempotencyStore()->find(
+            $this->connection(),
+            $this->related::class,
+            $this->idempotencyEntityType(),
+            (string) $this->modelKey($this->entity),
+            $key,
+            IdempotencyStore::hash([...$inputs, 'operation' => $operation, 'dimensions' => $this->dimensions]),
+            $this->idempotencyWindow(),
+        );
+
+        if ($cached === null) {
+            return null;
+        }
+
+        $recordedAt = $cached['recorded_at'] === ''
+            ? CarbonImmutable::now($this->timezone())
+            : CarbonImmutable::parse($cached['recorded_at'], $this->timezone());
+
+        return $committed(
+            $recordedAt,
+            $this->reloadById($cached['closed_ids']),
+            $this->reloadById($cached['inserted_ids']),
+            $cached['compacted'],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $inputs
+     */
+    private function recordIdempotent(string $key, string $operation, array $inputs, TemporalWriteCommitted $result): void
+    {
+        $this->idempotencyStore()->store(
+            $this->connection(),
+            $this->related::class,
+            $this->idempotencyEntityType(),
+            (string) $this->modelKey($this->entity),
+            $key,
+            $operation,
+            IdempotencyStore::hash([...$inputs, 'operation' => $operation, 'dimensions' => $this->dimensions]),
+            [
+                'recorded_at' => $result->recordedAt->format('Y-m-d H:i:s.u'),
+                'closed_ids' => array_map($this->modelKey(...), $result->rowsClosed),
+                'inserted_ids' => array_map($this->modelKey(...), $result->rowsInserted),
+                'compacted' => $result->compacted,
+            ],
+        );
+    }
+
+    private function modelKey(Model $model): int|string
+    {
+        $key = $model->getKey();
+
+        return is_int($key) || is_string($key) ? $key : get_debug_type($key);
+    }
+
+    /**
+     * @param  array<int, int|string>  $ids
+     * @return array<int, Model>
+     */
+    private function reloadById(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->newQuery()->whereIn($this->related->getKeyName(), $ids)->get()->all();
+    }
+
+    private function idempotencyEntityType(): ?string
+    {
+        if (! method_exists($this->related, 'temporalEntity')) {
+            return null;
+        }
+
+        return $this->related->temporalEntity() instanceof MorphTo
+            ? $this->entity->getMorphClass()
+            : null;
+    }
+
+    private function idempotencyStore(): IdempotencyStore
+    {
+        return new IdempotencyStore;
+    }
+
+    private function idempotencyWindow(): string
+    {
+        $window = config('bitemporal.writes.idempotency_window', '7 days');
+
+        return is_string($window) ? $window : '7 days';
     }
 
     /**
@@ -534,11 +659,29 @@ final readonly class BitemporalWriter
             $maxInstant = CarbonImmutable::parse($max, $this->timezone());
 
             if (! $now->greaterThan($maxInstant)) {
+                $driftMs = (int) $now->diffInMilliseconds($maxInstant, true);
+                $tolerance = $this->intConfig('bitemporal.writes.clock_skew_tolerance_ms', 60000);
+
+                if ($driftMs > $tolerance) {
+                    throw TemporalDomainException::clockSkew(
+                        $this->entityLabel(),
+                        $maxInstant->format('Y-m-d H:i:s.u'),
+                        $now->format('Y-m-d H:i:s.u'),
+                        $driftMs,
+                        $tolerance,
+                    );
+                }
+
                 return $maxInstant->addMicrosecond();
             }
         }
 
         return $now;
+    }
+
+    private function entityLabel(): string
+    {
+        return $this->related::class.'#'.self::modelKey($this->entity);
     }
 
     private function assertNoCurrentOverlaps(): void
@@ -589,7 +732,7 @@ final readonly class BitemporalWriter
             $this->meta->recordedFrom,
             $this->meta->recordedTo,
             $this->meta->isRetraction,
-            ...$this->meta->dimensions,
+            ...$this->declaredDimensions,
             ...(is_array($excluded) ? array_values(array_filter($excluded, is_string(...))) : []),
         ];
     }

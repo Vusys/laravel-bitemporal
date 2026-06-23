@@ -7,6 +7,11 @@ namespace Vusys\Bitemporal\Lens;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Closure;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
+use Vusys\Bitemporal\Boot\BootDiagnosticsReport;
+use Vusys\Bitemporal\Boot\BootGuards;
+use Vusys\Bitemporal\Boot\BootLints;
 use Vusys\Bitemporal\Exceptions\TemporalConfigurationException;
 
 /**
@@ -20,6 +25,81 @@ final class LensStack
      * @var array<int, LensFrame>
      */
     private array $frames = [];
+
+    private bool $bootGuardsSuppressed = false;
+
+    /**
+     * Run $callback with per-model boot guards disabled. For tests that
+     * deliberately violate guard invariants. No production use case.
+     *
+     * @template TReturn
+     *
+     * @param  Closure(): TReturn  $callback
+     * @return TReturn
+     */
+    public function withoutBootGuards(Closure $callback): mixed
+    {
+        $previous = $this->bootGuardsSuppressed;
+        $this->bootGuardsSuppressed = true;
+
+        try {
+            return $callback();
+        } finally {
+            $this->bootGuardsSuppressed = $previous;
+        }
+    }
+
+    public function bootGuardsSuppressed(): bool
+    {
+        return $this->bootGuardsSuppressed;
+    }
+
+    /**
+     * Run guards + lints against each model without throwing, collecting the
+     * results into a single report.
+     *
+     * @param  array<int, class-string<Model>>  $models
+     */
+    public function warmGuards(array $models): BootDiagnosticsReport
+    {
+        /** @var Collection<class-string, string> $failed */
+        $failed = new Collection;
+        /** @var Collection<class-string, array<class-string, string>> $lints */
+        $lints = new Collection;
+
+        foreach ($models as $class) {
+            $model = new $class;
+
+            try {
+                BootGuards::default()->runAgainst($model);
+            } catch (TemporalConfigurationException $exception) {
+                $failed->put($class, $exception->getMessage());
+            }
+
+            $raised = BootLints::default()->runAgainst($model, dispatch: false);
+            if ($raised !== []) {
+                $lints->put($class, $raised);
+            }
+        }
+
+        return new BootDiagnosticsReport($failed, $lints);
+    }
+
+    /**
+     * Like warmGuards(), but throws if any guard failed. Lints never throw.
+     *
+     * @param  array<int, class-string<Model>>  $models
+     */
+    public function warmGuardsOrFail(array $models): BootDiagnosticsReport
+    {
+        $report = $this->warmGuards($models);
+
+        if ($report->failedGuards->isNotEmpty()) {
+            throw new TemporalConfigurationException('Boot guards failed: '.$report->summary());
+        }
+
+        return $report;
+    }
 
     /**
      * @template TReturn

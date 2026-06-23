@@ -20,7 +20,7 @@
     // package — an algorithm/writer-heavy shard could fail at 50 while the
     // package as a whole clears it. The real gate lives in the `aggregate`
     // job, which unions every cell and fails the run if the package-wide union
-    // MSI drops below the floor (currently 50, ratcheted one-way up; target
+    // MSI drops below the floor (currently 55, ratcheted one-way up; target
     // post-1.0: 85). A bare `vendor/bin/infection` (no --filter) still honours
     // whatever is set here, so leave these at 0 to keep sharded cells green.
     minMsi: 0,

@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Vusys\Bitemporal\Concerns;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Str;
 use Vusys\Bitemporal\Exceptions\TemporalConfigurationException;
+use Vusys\Bitemporal\Relations\BitemporalBelongsToMany;
 use Vusys\Bitemporal\Relations\BitemporalMany;
 use Vusys\Bitemporal\Relations\BitemporalOne;
 
@@ -62,6 +65,43 @@ trait HasBitemporalRelations
             $instance->getTable().'.'.$relation->getForeignKeyName(),
             $this->getKeyName(),
         );
+    }
+
+    /**
+     * A many-to-many relation whose pivot is temporal. Chain ->using(Pivot::class)
+     * to bind the pivot model that carries the timeline.
+     *
+     * @template TRelated of Model
+     *
+     * @param  class-string<TRelated>  $related
+     * @param  class-string<Model>|null  $using
+     * @return BitemporalBelongsToMany<$this>
+     */
+    public function bitemporalBelongsToMany(string $related, ?string $using = null, ?string $foreignPivotKey = null, ?string $relatedPivotKey = null, ?string $parentKey = null)
+    {
+        $relatedInstance = new $related;
+
+        $foreignPivotKey ??= Str::snake(class_basename($this)).'_'.$this->getKeyName();
+        $relatedPivotKey ??= Str::snake(class_basename($related)).'_'.$relatedInstance->getKeyName();
+        $parentKey ??= $this->getKeyName();
+
+        /** @var Builder<Model> $standIn */
+        $standIn = $related::query()->setModel($relatedInstance);
+
+        $relation = new BitemporalBelongsToMany(
+            $standIn,
+            $this,
+            $foreignPivotKey,
+            $relatedPivotKey,
+            $parentKey,
+            $related,
+        );
+
+        if ($using !== null) {
+            $relation->using($using);
+        }
+
+        return $relation;
     }
 
     /**

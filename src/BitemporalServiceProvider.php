@@ -4,11 +4,19 @@ declare(strict_types=1);
 
 namespace Vusys\Bitemporal;
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\ServiceProvider;
+use Vusys\Bitemporal\AuditLog\TemporalAuditLogSubscriber;
+use Vusys\Bitemporal\Console\Commands\AuditOverlapsCommand;
+use Vusys\Bitemporal\Console\Commands\AuditTableCommand;
+use Vusys\Bitemporal\Console\Commands\DiffTimelinesCommand;
+use Vusys\Bitemporal\Console\Commands\MakeBitemporalFactoryCommand;
+use Vusys\Bitemporal\Console\Commands\MakeBitemporalMigrationCommand;
 use Vusys\Bitemporal\Console\Commands\MakeBitemporalModelCommand;
+use Vusys\Bitemporal\Console\Commands\PruneIdempotencyKeysCommand;
 use Vusys\Bitemporal\Console\Commands\WarmGuardsCommand;
 use Vusys\Bitemporal\Database\TemporalBlueprintMacros;
 use Vusys\Bitemporal\Lens\AsOfJobListener;
@@ -16,6 +24,7 @@ use Vusys\Bitemporal\Lens\LensStack;
 use Vusys\Bitemporal\Locking\AdvisoryLocker;
 use Vusys\Bitemporal\Locking\ParentRowLocker;
 use Vusys\Bitemporal\Locking\WriteLocker;
+use Vusys\Bitemporal\Testing\PestExpectations;
 
 final class BitemporalServiceProvider extends ServiceProvider
 {
@@ -40,15 +49,45 @@ final class BitemporalServiceProvider extends ServiceProvider
     {
         TemporalBlueprintMacros::register();
 
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+
+        if ($this->app->runningUnitTests()) {
+            PestExpectations::register();
+        }
+
+        if (config('bitemporal.writes.idempotency_auto_prune', true) === true) {
+            $this->callAfterResolving(Schedule::class, static function (Schedule $schedule): void {
+                $schedule->command(PruneIdempotencyKeysCommand::class)->daily();
+            });
+        }
+
         $events = $this->app->make(Dispatcher::class);
         $events->listen(JobProcessing::class, [AsOfJobListener::class, 'handleProcessing']);
         $events->listen(JobProcessed::class, [AsOfJobListener::class, 'handleProcessed']);
 
+        if (config('bitemporal.audit_log.enabled', false) === true) {
+            $events->subscribe(TemporalAuditLogSubscriber::class);
+        }
+
         if ($this->app->runningInConsole()) {
             $this->commands([
+                AuditOverlapsCommand::class,
+                AuditTableCommand::class,
+                DiffTimelinesCommand::class,
+                MakeBitemporalFactoryCommand::class,
+                MakeBitemporalMigrationCommand::class,
                 MakeBitemporalModelCommand::class,
+                PruneIdempotencyKeysCommand::class,
                 WarmGuardsCommand::class,
             ]);
+
+            $this->publishes([
+                __DIR__.'/../database/migrations' => $this->app->databasePath('migrations'),
+            ], 'bitemporal-migrations');
+
+            $this->publishes([
+                __DIR__.'/../stubs' => $this->app->basePath('stubs/vendor/bitemporal'),
+            ], 'bitemporal-stubs');
 
             $this->publishes([
                 __DIR__.'/../config/bitemporal.php' => $this->app->configPath('bitemporal.php'),

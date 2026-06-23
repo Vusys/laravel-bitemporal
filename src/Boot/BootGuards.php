@@ -9,6 +9,7 @@ use ReflectionClass;
 use Vusys\Bitemporal\Boot\Guards\BootGuardDimensions;
 use Vusys\Bitemporal\Boot\Guards\BootGuardNewCollection;
 use Vusys\Bitemporal\Boot\Guards\BootGuardNewEloquentBuilder;
+use Vusys\Bitemporal\Boot\Guards\BootGuardPrimaryKey;
 use Vusys\Bitemporal\Boot\Guards\BootGuardRelationType;
 use Vusys\Bitemporal\Boot\Guards\BootGuardSoftDeletes;
 use Vusys\Bitemporal\Exceptions\TemporalConfigurationException;
@@ -34,6 +35,7 @@ final readonly class BootGuards
             new BootGuardNewEloquentBuilder,
             new BootGuardNewCollection,
             new BootGuardDimensions,
+            new BootGuardPrimaryKey,
         ]);
     }
 

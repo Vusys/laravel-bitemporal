@@ -22,6 +22,12 @@ return [
         'enabled' => true,
     ],
 
+    'audit_log' => [
+        'enabled' => false,
+        'table' => 'temporal_audit_log',
+        'connection' => null,
+    ],
+
     'writes' => [
         'compact_adjacent_segments' => true,
         'compaction_excluded_columns' => ['created_at', 'updated_at'],
@@ -30,5 +36,8 @@ return [
         'lock_strategy' => 'parent_row',
         'parent_lock_timeout_ms' => 5000,
         'deadlock_retry_attempts' => 1,
+        'clock_skew_tolerance_ms' => 60000,
+        'idempotency_window' => '7 days',
+        'idempotency_auto_prune' => true,
     ],
 ];
