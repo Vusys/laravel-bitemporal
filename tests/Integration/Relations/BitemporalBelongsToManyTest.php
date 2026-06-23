@@ -97,7 +97,7 @@ final class BitemporalBelongsToManyTest extends IntegrationTestCase
         $user = $this->makeUser();
         $role = $this->makeRole();
 
-        $user->roles()->attachFor(related: $role, validFrom: '2026-01-01', validTo: null, attributes: ['scope' => 'global']);
+        $user->roles()->attachFor(related: $role, validFrom: '2026-01-01', attributes: ['scope' => 'global']);
         $user->roles()->correctAssignment(related: $role, validFrom: '2026-06-01', validTo: '2026-08-01', attributes: ['scope' => 'eu']);
 
         $this->assertSame('global', $user->roles()->validAt('2026-03-01')->currentKnowledge()->sole()->getAttribute('scope'));

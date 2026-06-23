@@ -262,7 +262,7 @@ final readonly class Timeline implements Countable, IteratorAggregate
             return false;
         }
 
-        return array_all($this->segments, fn ($segment, $index) => $segment->equals($other->segments[$index]));
+        return array_all($this->segments, fn (TimelineSegment $segment, $index): bool => $segment->equals($other->segments[$index]));
     }
 
     /**

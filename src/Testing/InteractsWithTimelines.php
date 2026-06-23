@@ -276,7 +276,7 @@ trait InteractsWithTimelines
             }
         }
 
-        return array_all($valueKeys, fn ($key): bool => AttributeEquality::equals($row->getAttribute($key), $expected[$key]));
+        return array_all($valueKeys, fn (string $key): bool => AttributeEquality::equals($row->getAttribute($key), $expected[$key]));
     }
 
     private function instantsEqual(mixed $actual, mixed $expected): bool

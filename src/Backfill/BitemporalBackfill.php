@@ -106,10 +106,6 @@ final readonly class BitemporalBackfill
             return new TemporalBackfillCommitted($this->related::class, $this->entity, $this->dimensions, $rowsInserted);
         });
 
-        if (! $committed instanceof TemporalBackfillCommitted) {
-            throw new TemporalInvalidSpellException('unexpected backfill result');
-        }
-
         $this->events->dispatch($committed);
 
         return $committed;

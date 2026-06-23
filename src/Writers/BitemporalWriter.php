@@ -228,10 +228,6 @@ final readonly class BitemporalWriter
             return new TemporalHardDeleteCommitted($this->related::class, $this->entity, $this->dimensions, $ids);
         });
 
-        if (! $committed instanceof TemporalHardDeleteCommitted) {
-            throw new TemporalInvalidSpellException('unexpected write result');
-        }
-
         $this->events->dispatch($committed);
 
         return $committed;
@@ -310,10 +306,6 @@ final readonly class BitemporalWriter
 
             return $committed($recordedAt, $rowsClosed, $rowsInserted, $compacted);
         }, $this->deadlockRetryAttempts());
-
-        if (! $result instanceof TemporalWriteCommitted) {
-            throw new TemporalInvalidSpellException('unexpected write result');
-        }
 
         if ($idempotencyKey !== null) {
             $this->recordIdempotent($idempotencyKey, $operation, $idempotencyInputs, $result);
