@@ -26,6 +26,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->restrictOnDelete();
             $table->foreignId('role_id')->constrained()->restrictOnDelete();
+            // Nullable alias column exercised by the explicit relatedPivotKey
+            // mutation test, which builds a relation keyed on 'custom_rid'. The
+            // detachAt cardinality query references this column on every engine,
+            // so it must exist even though no fixture model maps it by default.
+            $table->unsignedBigInteger('custom_rid')->nullable();
             $table->string('scope')->nullable();
             $table->dateTime('valid_from', 6);
             $table->dateTime('valid_to', 6)->nullable();
