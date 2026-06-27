@@ -420,8 +420,12 @@ final class InteractsWithTimelinesMutationTest extends IntegrationTestCase
     {
         $c1 = Customer::query()->create(['name' => 'c1']);
         $c2 = Customer::query()->create(['name' => 'c2']);
-        $this->insertAddress(Customer::class, (int) $c1->getKey(), ['valid_from' => '2026-01-01', 'valid_to' => null]);
-        $this->insertAddress(Customer::class, (int) $c2->getKey(), ['valid_from' => '2026-01-01', 'valid_to' => null]);
+        $c1Key = $c1->getKey();
+        $c2Key = $c2->getKey();
+        $this->assertIsInt($c1Key);
+        $this->assertIsInt($c2Key);
+        $this->insertAddress(Customer::class, $c1Key, ['valid_from' => '2026-01-01', 'valid_to' => null]);
+        $this->insertAddress(Customer::class, $c2Key, ['valid_from' => '2026-01-01', 'valid_to' => null]);
 
         $this->assertNoTemporalOverlaps(Address::class);
     }
@@ -430,9 +434,13 @@ final class InteractsWithTimelinesMutationTest extends IntegrationTestCase
     {
         $customer = Customer::query()->create(['name' => 'c']);
         $supplier = Supplier::query()->create(['name' => 's']);
+        $customerKey = $customer->getKey();
+        $supplierKey = $supplier->getKey();
+        $this->assertIsInt($customerKey);
+        $this->assertIsInt($supplierKey);
         // Force the same owner_id but different owner_type.
-        $this->insertAddress(Customer::class, (int) $customer->getKey(), ['owner_id' => 1, 'valid_from' => '2026-01-01', 'valid_to' => null]);
-        $this->insertAddress(Supplier::class, (int) $supplier->getKey(), ['owner_id' => 1, 'valid_from' => '2026-01-01', 'valid_to' => null]);
+        $this->insertAddress(Customer::class, $customerKey, ['owner_id' => 1, 'valid_from' => '2026-01-01', 'valid_to' => null]);
+        $this->insertAddress(Supplier::class, $supplierKey, ['owner_id' => 1, 'valid_from' => '2026-01-01', 'valid_to' => null]);
 
         $this->assertNoTemporalOverlaps(Address::class);
     }
@@ -612,6 +620,10 @@ final class InteractsWithTimelinesMutationTest extends IntegrationTestCase
 
     private function assertFailsFirstLine(callable $fn, string $expectedPrefix): void
     {
+        if ($expectedPrefix === '') {
+            $this->fail('Expected prefix must not be empty.');
+        }
+
         try {
             $fn();
         } catch (AssertionFailedError $e) {

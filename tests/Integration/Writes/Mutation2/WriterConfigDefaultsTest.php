@@ -31,7 +31,9 @@ final class WriterConfigDefaultsTest extends IntegrationTestCase
      */
     private function forgetWriteKeys(array $keys): void
     {
-        config()->set('bitemporal.writes', Arr::except(config('bitemporal.writes'), $keys));
+        $writes = config('bitemporal.writes');
+        $this->assertIsArray($writes);
+        config()->set('bitemporal.writes', Arr::except($writes, $keys));
     }
 
     // --- clock_skew_tolerance_ms default (60000) ---

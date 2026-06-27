@@ -39,10 +39,10 @@ final class BootDiagnosticsReportMutationTest extends IntegrationTestCase
 
         $this->assertTrue($report->raisedLints->has(MutableDatetimeCastPrice::class));
         $this->assertFalse($report->raisedLints->has(ProductPrice::class));
-        $this->assertArrayHasKey(
-            BootLintMutableDatetimeCast::class,
-            $report->raisedLints->get(MutableDatetimeCastPrice::class),
-        );
+
+        $lints = $report->raisedLints->get(MutableDatetimeCastPrice::class);
+        $this->assertIsArray($lints);
+        $this->assertArrayHasKey(BootLintMutableDatetimeCast::class, $lints);
 
         // Exactly one guard failure and one raised lint => the summary string
         // must read precisely this; any off-by-one or sign flip in the reducer

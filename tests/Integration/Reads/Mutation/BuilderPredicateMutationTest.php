@@ -116,7 +116,9 @@ final class BuilderPredicateMutationTest extends IntegrationTestCase
         $customer = Customer::query()->create(['name' => 'Acme']);
         $this->seedAddress($customer, 'hq');
 
-        $context = new MorphContext($customer->getMorphClass(), $customer->getKey());
+        $customerKey = $customer->getKey();
+        $this->assertIsInt($customerKey);
+        $context = new MorphContext($customer->getMorphClass(), $customerKey);
 
         $rows = Address::query()->whereTemporalEntity($context)->get();
 
@@ -135,7 +137,9 @@ final class BuilderPredicateMutationTest extends IntegrationTestCase
         $this->seedAddress($customer, 'a');
         $this->seedAddress($other, 'b');
 
-        $context = new MorphContext($customer->getMorphClass(), $customer->getKey());
+        $customerKey = $customer->getKey();
+        $this->assertIsInt($customerKey);
+        $context = new MorphContext($customer->getMorphClass(), $customerKey);
 
         $rows = Address::query()->whereTemporalEntityIn([$context])->get();
 

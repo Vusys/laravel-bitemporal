@@ -48,6 +48,7 @@ final class EntityScopeMutationTest extends TestCase
         // MisrelatedPrice is deliberately misconfigured, so its boot guards
         // throw on construction; suppress them to reach EntityScope itself.
         $related = TemporalLens::withoutBootGuards(fn (): MisrelatedPrice => new MisrelatedPrice);
+        $this->assertInstanceOf(MisrelatedPrice::class, $related);
 
         try {
             EntityScope::resolve($related, new Product);

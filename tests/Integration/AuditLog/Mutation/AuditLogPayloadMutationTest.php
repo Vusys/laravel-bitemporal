@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Vusys\Bitemporal\Tests\Integration\AuditLog\Mutation;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Vusys\Bitemporal\Tests\Integration\IntegrationTestCase;
 
@@ -45,8 +46,8 @@ final class AuditLogPayloadMutationTest extends IntegrationTestCase
         $this->assertArrayHasKey('inserted_ids', $payload);
         $this->assertArrayHasKey('compacted', $payload);
 
-        $expectedClosed = array_map(static fn ($m): int => (int) $m->getKey(), $result->rowsClosed);
-        $expectedInserted = array_map(static fn ($m): int => (int) $m->getKey(), $result->rowsInserted);
+        $expectedClosed = array_map($this->intKey(...), $result->rowsClosed);
+        $expectedInserted = array_map($this->intKey(...), $result->rowsInserted);
 
         $this->assertSame($expectedClosed, $payload['closed_ids']);
         $this->assertSame($expectedInserted, $payload['inserted_ids']);
@@ -71,13 +72,31 @@ final class AuditLogPayloadMutationTest extends IntegrationTestCase
         $this->assertIsArray($payload);
         $this->assertArrayHasKey('deleted_ids', $payload);
 
-        $expected = array_map(static fn ($id): int => (int) $id, $result->ids);
+        $expected = array_map($this->toInt(...), $result->ids);
         sort($expected);
-        $actual = array_map(static fn ($id): int => (int) $id, $payload['deleted_ids']);
+
+        $deletedIds = $payload['deleted_ids'];
+        $this->assertIsArray($deletedIds);
+        $actual = array_map($this->toInt(...), $deletedIds);
         sort($actual);
 
         $this->assertSame($expected, $actual);
-        $this->assertContains((int) $first->getKey(), $actual);
-        $this->assertContains((int) $second->getKey(), $actual);
+        $this->assertContains($this->intKey($first), $actual);
+        $this->assertContains($this->intKey($second), $actual);
+    }
+
+    private function intKey(Model $model): int
+    {
+        $key = $model->getKey();
+        $this->assertIsInt($key);
+
+        return $key;
+    }
+
+    private function toInt(mixed $value): int
+    {
+        $this->assertIsInt($value);
+
+        return $value;
     }
 }

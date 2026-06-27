@@ -36,7 +36,10 @@ final class BootLintsMutationTest extends IntegrationTestCase
      */
     private function clean(string $class): object
     {
-        return TemporalLens::withoutBootGuards(static fn () => new $class);
+        $model = TemporalLens::withoutBootGuards(static fn () => new $class);
+        $this->assertInstanceOf($class, $model);
+
+        return $model;
     }
 
     public function test_default_runs_both_lints_and_returns_every_raised_one(): void
@@ -99,7 +102,8 @@ final class BootLintsMutationTest extends IntegrationTestCase
                 && str_contains($event->message, 'valid_from'),
         );
 
-        $log->shouldHaveReceived('warning')->withArgs(
+        $log->shouldHaveReceived(
+            'warning',
             static fn (string $message, array $context): bool => str_contains($message, 'BootLintMutableDatetimeCast')
                 && ($context['model'] ?? null) === MutableDatetimeCastPrice::class,
         );

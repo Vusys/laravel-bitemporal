@@ -60,6 +60,7 @@ final class FactoryRetractedPreservedColumnsTest extends IntegrationTestCase
             ->retracted()
             ->create();
 
+        $this->assertInstanceOf(ProductPriceWithDimensions::class, $price);
         $this->assertSame('GBP', $price->currency);
         $this->assertNull($price->amount);
     }
@@ -83,6 +84,7 @@ final class FactoryRetractedPreservedColumnsTest extends IntegrationTestCase
             ->retracted()
             ->create();
 
+        $this->assertInstanceOf(Address::class, $address);
         $this->assertSame('customer', $address->owner_type);
         $this->assertSame(7, (int) $address->owner_id);
         $this->assertNull($address->label);

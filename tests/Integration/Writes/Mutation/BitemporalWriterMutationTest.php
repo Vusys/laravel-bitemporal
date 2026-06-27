@@ -330,7 +330,9 @@ final class BitemporalWriterMutationTest extends IntegrationTestCase
 
         $this->assertNotNull($message);
         // Pin the "<RelatedClass>#<entityKey>" order and both operands.
-        $this->assertStringContainsString(ProductPrice::class.'#'.$product->getKey(), $message);
+        $productKey = $product->getKey();
+        $this->assertIsInt($productKey);
+        $this->assertStringContainsString(ProductPrice::class.'#'.$productKey, $message);
     }
 
     // --- intConfig numeric-string handling (CastInt + Ternary, uncovered) ---
@@ -408,8 +410,12 @@ final class BitemporalWriterMutationTest extends IntegrationTestCase
         // row (closing the Jan row, or producing an overlap).
         $product->prices()->correct(['amount' => 2500], validFrom: '2026-06-01');
 
-        $jun = ProductPrice::query()->findOrFail($junRow->getKey());
-        $jan = ProductPrice::query()->findOrFail($janRow->getKey());
+        $junKey = $junRow->getKey();
+        $janKey = $janRow->getKey();
+        $this->assertIsInt($junKey);
+        $this->assertIsInt($janKey);
+        $jun = ProductPrice::query()->findOrFail($junKey);
+        $jan = ProductPrice::query()->findOrFail($janKey);
 
         $this->assertNotNull($jun->recorded_to, 'the Jun row should have been closed');
         $this->assertNull($jan->recorded_to, 'the Jan row should remain open');

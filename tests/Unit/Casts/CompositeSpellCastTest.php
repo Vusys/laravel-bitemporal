@@ -127,6 +127,11 @@ final class CompositeSpellCastTest extends TestCase
 
         // Kills the InstanceOf/LogicalNot mutants that would skip the early return.
         $this->assertSame([], $cast->set($this->model(), 'spell', null, []));
-        $this->assertSame([], $cast->set($this->model(), 'spell', 'not-a-spell', []));
+
+        // Eloquent calls set() with an arbitrary mixed value at runtime (the
+        // native signature is `mixed $value`), so invoke it reflectively with a
+        // non-Spell value to pin the instanceof guard without lying about types.
+        $set = new \ReflectionMethod($cast, 'set');
+        $this->assertSame([], $set->invoke($cast, $this->model(), 'spell', 'not-a-spell', []));
     }
 }

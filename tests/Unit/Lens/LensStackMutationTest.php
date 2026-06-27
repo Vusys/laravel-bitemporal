@@ -28,14 +28,17 @@ final class LensStackMutationTest extends TestCase
     {
         $stack = new LensStack;
 
-        $this->assertFalse($stack->bootGuardsSuppressed());
+        $before = $stack->bootGuardsSuppressed();
+        $this->assertFalse($before);
 
         $insideValue = $stack->withoutBootGuards(function () use ($stack): bool {
             return $stack->bootGuardsSuppressed();
         });
 
         $this->assertTrue($insideValue);
-        $this->assertFalse($stack->bootGuardsSuppressed());
+
+        $after = $stack->bootGuardsSuppressed();
+        $this->assertFalse($after);
     }
 
     // Kills the parse() Ternary: a configured non-UTC timezone must be honoured
@@ -105,6 +108,7 @@ final class LensStackMutationTest extends TestCase
         $report = TemporalLens::withoutBootGuards(
             fn (): BootDiagnosticsReport => TemporalLens::warmGuards([SoftDeletingPrice::class]),
         );
+        $this->assertInstanceOf(BootDiagnosticsReport::class, $report);
 
         $this->assertTrue($report->failedGuards->has(SoftDeletingPrice::class));
         $this->assertStringContainsString('SoftDeletes', (string) $report->failedGuards->get(SoftDeletingPrice::class));

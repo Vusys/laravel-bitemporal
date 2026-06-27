@@ -103,7 +103,9 @@ final class PivotRelationMutationTest extends IntegrationTestCase
             $relation->detachAt($role, '2026-09-01');
             $this->fail('Expected a cardinality exception.');
         } catch (TemporalCardinalityException $exception) {
-            $this->assertStringContainsString("custom_rid={$role->getKey()}", $exception->getMessage());
+            $roleKey = $role->getKey();
+            $this->assertIsInt($roleKey);
+            $this->assertStringContainsString("custom_rid={$roleKey}", $exception->getMessage());
         }
     }
 
@@ -288,8 +290,12 @@ final class PivotRelationMutationTest extends IntegrationTestCase
             $user->roles()->correctAssignment($role, '2026-06-01', '2026-08-01');
             $this->fail('Expected a cardinality exception.');
         } catch (TemporalCardinalityException $exception) {
+            $userKey = $user->getKey();
+            $roleKey = $role->getKey();
+            $this->assertIsInt($userKey);
+            $this->assertIsInt($roleKey);
             $this->assertStringContainsString(
-                "user_id={$user->getKey()}, role_id={$role->getKey()}",
+                "user_id={$userKey}, role_id={$roleKey}",
                 $exception->getMessage(),
             );
         }
@@ -304,8 +310,12 @@ final class PivotRelationMutationTest extends IntegrationTestCase
             $user->roles()->detachAt($role, '2026-09-01');
             $this->fail('Expected a cardinality exception.');
         } catch (TemporalCardinalityException $exception) {
+            $userKey = $user->getKey();
+            $roleKey = $role->getKey();
+            $this->assertIsInt($userKey);
+            $this->assertIsInt($roleKey);
             $this->assertStringContainsString(
-                "user_id={$user->getKey()}, role_id={$role->getKey()}",
+                "user_id={$userKey}, role_id={$roleKey}",
                 $exception->getMessage(),
             );
         }
@@ -324,12 +334,14 @@ final class PivotRelationMutationTest extends IntegrationTestCase
         // extra `scope` dimension must coexist as independent open timelines.
         // The dimension tuple is folded into the writer's scope; dropping it
         // would make the second write supersede the first.
-        $user->bitemporalBelongsToMany(Role::class, using: ScopedRoleAssignment::class)
-            ->forDimensions(['scope' => 'eu'])
-            ->attachFor($role, '2026-06-01', attributes: ['scope' => 'eu']);
-        $user->bitemporalBelongsToMany(Role::class, using: ScopedRoleAssignment::class)
-            ->forDimensions(['scope' => 'us'])
-            ->attachFor($role, '2026-06-01', attributes: ['scope' => 'us']);
+        $euRelation = $user->bitemporalBelongsToMany(Role::class, using: ScopedRoleAssignment::class)
+            ->forDimensions(['scope' => 'eu']);
+        $usRelation = $user->bitemporalBelongsToMany(Role::class, using: ScopedRoleAssignment::class)
+            ->forDimensions(['scope' => 'us']);
+        $this->assertInstanceOf(BitemporalBelongsToMany::class, $euRelation);
+        $this->assertInstanceOf(BitemporalBelongsToMany::class, $usRelation);
+        $euRelation->attachFor($role, '2026-06-01', attributes: ['scope' => 'eu']);
+        $usRelation->attachFor($role, '2026-06-01', attributes: ['scope' => 'us']);
 
         $this->assertCount(2, $user->roles()->currentKnowledge()->get());
     }

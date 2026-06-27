@@ -47,7 +47,9 @@ final class AuditTableCommandMutationTest extends IntegrationTestCase
         $this->assertStringContainsString('2026-02-02', $output); // recorded_from
 
         // Scoped count line is exactly one row for this entity.
-        $this->assertStringContainsString('#'.$product->getKey().': 1 row(s).', $output);
+        $productKey = $product->getKey();
+        $this->assertIsInt($productKey);
+        $this->assertStringContainsString('#'.$productKey.': 1 row(s).', $output);
     }
 
     public function test_full_flag_includes_superseded_rows(): void
@@ -151,9 +153,6 @@ final class AuditTableCommandMutationTest extends IntegrationTestCase
         $this->assertStringContainsString('is not a temporal model.', Artisan::output());
     }
 
-    /**
-     * @param  array<string, mixed>  $attributes
-     */
     private function seedAddress(Customer $owner, string $label): void
     {
         Address::query()->create([

@@ -13,8 +13,6 @@ use Vusys\Bitemporal\Bitemporal;
  * Deliberately broken: overrides newCollection() to return a plain Eloquent
  * collection instead of a BitemporalCollection, which BootGuardNewCollection
  * must reject.
- *
- * @phpstan-ignore-next-line method return type
  */
 class PlainCollectionPrice extends Model
 {
@@ -25,8 +23,8 @@ class PlainCollectionPrice extends Model
     protected $guarded = [];
 
     /**
-     * @param  array<int, mixed>  $models
-     * @return Collection<int, mixed>
+     * @param  array<int, static>  $models
+     * @return Collection<int, static>
      */
     public function newCollection(array $models = []): Collection
     {

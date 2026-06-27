@@ -49,12 +49,18 @@ final class AuditLogBackfillMutationTest extends IntegrationTestCase
         $rows = DB::table('temporal_audit_log')->where('event_class', 'TemporalBackfillCommitted')->get();
         $this->assertCount(1, $rows);
 
-        $payload = json_decode((string) $rows->first()->payload, true);
+        $first = $rows->first();
+        $this->assertNotNull($first);
+
+        $payload = json_decode((string) $first->payload, true);
         $this->assertIsArray($payload);
         $this->assertArrayHasKey('inserted_ids', $payload);
-        $this->assertCount(2, $payload['inserted_ids']);
 
-        foreach ($payload['inserted_ids'] as $id) {
+        $insertedIds = $payload['inserted_ids'];
+        $this->assertIsArray($insertedIds);
+        $this->assertCount(2, $insertedIds);
+
+        foreach ($insertedIds as $id) {
             $this->assertIsInt($id);
         }
     }

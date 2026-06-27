@@ -13,8 +13,6 @@ use Vusys\Bitemporal\Bitemporal;
  * Deliberately broken: overrides newEloquentBuilder() to return a plain Eloquent
  * builder instead of a BitemporalBuilder, which BootGuardNewEloquentBuilder must
  * reject.
- *
- * @phpstan-ignore-next-line method return type
  */
 class PlainBuilderPrice extends Model
 {
@@ -26,7 +24,7 @@ class PlainBuilderPrice extends Model
 
     /**
      * @param  \Illuminate\Database\Query\Builder  $query
-     * @return Builder<$this>
+     * @return Builder<Model>
      */
     public function newEloquentBuilder($query): Builder
     {

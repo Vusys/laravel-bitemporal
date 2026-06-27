@@ -7,11 +7,16 @@ namespace Vusys\Bitemporal\Tests\Fixtures\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Vusys\Bitemporal\Bitemporal;
+use Vusys\Bitemporal\Support\TemporalEntityMetadata;
 
 /**
- * Deliberately broken: $temporalDimensions contains a non-string element, which
+ * Deliberately broken: temporalDimensions() yields a non-string element, which
  * BootGuardDimensions must reject. The non-string sits *after* a valid string so
  * the guard has to actually iterate the list (not just look at the first item).
+ *
+ * The list is returned from an override (rather than a typed $temporalDimensions
+ * property) so the deliberately-invalid element stays out of the temporal
+ * metadata pipeline, which legitimately requires a list of column-name strings.
  */
 class BadDimensionsPrice extends Model
 {
@@ -22,9 +27,25 @@ class BadDimensionsPrice extends Model
     protected $guarded = [];
 
     /**
-     * @var array<int, mixed>
+     * @return array<int, mixed>
      */
-    protected array $temporalDimensions = ['currency', 123];
+    public function temporalDimensions(): array
+    {
+        return ['currency', 123];
+    }
+
+    public function temporalMetadata(): TemporalEntityMetadata
+    {
+        return new TemporalEntityMetadata(
+            $this->validFromColumn(),
+            $this->validToColumn(),
+            $this->recordedFromColumn(),
+            $this->recordedToColumn(),
+            $this->isRetractionColumn(),
+            $this->tracksRecordedTime(),
+            [],
+        );
+    }
 
     /**
      * @return BelongsTo<Product, $this>

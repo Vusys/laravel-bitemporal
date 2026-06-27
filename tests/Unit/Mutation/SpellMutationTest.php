@@ -84,6 +84,8 @@ final class SpellMutationTest extends TestCase
         // Remove the key entirely so the default argument of config() is consulted.
         // Real default is false (reject); the mutant default true would allow it.
         $bitemporal = config('bitemporal');
+        $this->assertIsArray($bitemporal);
+        $this->assertIsArray($bitemporal['spells']);
         unset($bitemporal['spells']['allow_zero_length']);
         config(['bitemporal' => $bitemporal]);
 

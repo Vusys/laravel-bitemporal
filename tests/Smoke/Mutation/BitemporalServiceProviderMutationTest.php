@@ -8,6 +8,7 @@ use Illuminate\Config\Repository;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Queue\Job;
+use Illuminate\Foundation\Application;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Artisan;
@@ -46,12 +47,13 @@ final class BitemporalServiceProviderMutationTest extends TestCase
      */
     private function registerWithStrategy(string $strategy): Container
     {
-        $container = new Container;
+        $previous = Container::getInstance();
+
+        $container = new Application;
         $container->instance('config', new Repository([
             'bitemporal' => ['writes' => ['lock_strategy' => $strategy]],
         ]));
 
-        $previous = Container::getInstance();
         Container::setInstance($container);
 
         try {
@@ -97,9 +99,12 @@ final class BitemporalServiceProviderMutationTest extends TestCase
         $expected = realpath(__DIR__.'/../../../database/migrations');
         $this->assertNotFalse($expected);
 
+        $app = $this->app;
+        $this->assertNotNull($app);
+
         $paths = array_map(
             static fn (string $path): string|false => realpath($path),
-            $this->app->make('migrator')->paths(),
+            $app->make('migrator')->paths(),
         );
 
         $this->assertContains($expected, $paths);
@@ -107,17 +112,26 @@ final class BitemporalServiceProviderMutationTest extends TestCase
 
     public function test_migrations_are_published(): void
     {
-        $this->assertPublishes('bitemporal-migrations', __DIR__.'/../../../database/migrations', $this->app->databasePath('migrations'));
+        $app = $this->app;
+        $this->assertNotNull($app);
+
+        $this->assertPublishes('bitemporal-migrations', __DIR__.'/../../../database/migrations', $app->databasePath('migrations'));
     }
 
     public function test_stubs_are_published(): void
     {
-        $this->assertPublishes('bitemporal-stubs', __DIR__.'/../../../stubs', $this->app->basePath('stubs/vendor/bitemporal'));
+        $app = $this->app;
+        $this->assertNotNull($app);
+
+        $this->assertPublishes('bitemporal-stubs', __DIR__.'/../../../stubs', $app->basePath('stubs/vendor/bitemporal'));
     }
 
     public function test_config_is_published(): void
     {
-        $this->assertPublishes('bitemporal-config', __DIR__.'/../../../config/bitemporal.php', $this->app->configPath('bitemporal.php'));
+        $app = $this->app;
+        $this->assertNotNull($app);
+
+        $this->assertPublishes('bitemporal-config', __DIR__.'/../../../config/bitemporal.php', $app->configPath('bitemporal.php'));
     }
 
     private function assertPublishes(string $group, string $expectedSource, string $expectedTarget): void
@@ -134,7 +148,10 @@ final class BitemporalServiceProviderMutationTest extends TestCase
 
     public function test_idempotency_prune_command_is_scheduled_daily(): void
     {
-        $schedule = $this->app->make(Schedule::class);
+        $app = $this->app;
+        $this->assertNotNull($app);
+
+        $schedule = $app->make(Schedule::class);
 
         $matches = array_filter(
             $schedule->events(),
@@ -147,7 +164,9 @@ final class BitemporalServiceProviderMutationTest extends TestCase
 
     public function test_job_processing_listener_resets_the_lens_stack(): void
     {
-        $job = Mockery::mock(Job::class)->shouldIgnoreMissing();
+        $job = Mockery::mock(Job::class);
+        $job->shouldIgnoreMissing();
+        $this->assertInstanceOf(Job::class, $job);
 
         TemporalLens::asOf('2026-01-01', null, function () use ($job): void {
             $this->assertSame(1, TemporalLens::depth());
@@ -160,7 +179,9 @@ final class BitemporalServiceProviderMutationTest extends TestCase
 
     public function test_job_processed_listener_asserts_the_lens_stack_is_empty(): void
     {
-        $job = Mockery::mock(Job::class)->shouldIgnoreMissing();
+        $job = Mockery::mock(Job::class);
+        $job->shouldIgnoreMissing();
+        $this->assertInstanceOf(Job::class, $job);
 
         $this->expectException(TemporalConfigurationException::class);
 
@@ -177,7 +198,9 @@ final class BitemporalServiceProviderMutationTest extends TestCase
 
     public function test_job_processed_listener_is_silent_when_the_stack_is_empty(): void
     {
-        $job = Mockery::mock(Job::class)->shouldIgnoreMissing();
+        $job = Mockery::mock(Job::class);
+        $job->shouldIgnoreMissing();
+        $this->assertInstanceOf(Job::class, $job);
 
         event(new JobProcessed('sync', $job));
 
