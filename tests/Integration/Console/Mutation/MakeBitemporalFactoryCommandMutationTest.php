@@ -76,14 +76,23 @@ final class MakeBitemporalFactoryCommandMutationTest extends TestCase
 
     public function test_nested_factory_path_uses_forward_slashes(): void
     {
+        $app = $this->app;
+        $this->assertNotNull($app);
+
+        // Defensively clear any stale literal-backslash artifact (e.g. left by a
+        // prior mutated run) and register it for cleanup, so this assertion only
+        // reflects what THIS run's generator produced.
+        $literal = $app->databasePath('factories/Nested\\GizmoFactory.php');
+        if (file_exists($literal)) {
+            @unlink($literal);
+        }
+        $this->generated[] = $literal;
+
         $path = $this->generate(['name' => 'Nested\\GizmoFactory'], 'Nested/GizmoFactory.php');
 
         // The backslash in the name must be turned into a directory separator
         // (kills the UnwrapStrReplace on getPath()).
         $this->assertFileExists($path);
-
-        $app = $this->app;
-        $this->assertNotNull($app);
-        $this->assertFileDoesNotExist($app->databasePath('factories/Nested\\GizmoFactory.php'));
+        $this->assertFileDoesNotExist($literal);
     }
 }
