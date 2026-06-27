@@ -28,7 +28,7 @@ final class BootGuardPrimaryKeyMutationTest extends IntegrationTestCase
     public function test_flags_a_key_colliding_with_a_non_first_temporal_column(): void
     {
         /** @var CollidingValidToKeyModel $model */
-        $model = TemporalLens::withoutBootGuards(static fn () => new CollidingValidToKeyModel);
+        $model = TemporalLens::withoutBootGuards(static fn (): CollidingValidToKeyModel => new CollidingValidToKeyModel);
 
         // The key is valid_to (index 1 in the column map). SpreadOneItem keeps
         // only the first column (valid_from), so it would miss this collision.
@@ -41,7 +41,7 @@ final class BootGuardPrimaryKeyMutationTest extends IntegrationTestCase
     public function test_flags_a_key_colliding_with_a_dimension(): void
     {
         /** @var CollidingDimensionKeyModel $model */
-        $model = TemporalLens::withoutBootGuards(static fn () => new CollidingDimensionKeyModel);
+        $model = TemporalLens::withoutBootGuards(static fn (): CollidingDimensionKeyModel => new CollidingDimensionKeyModel);
 
         // The key is the dimension 'currency'. SpreadRemoval nests the dimensions
         // as a single array element, so the collision would no longer be found.

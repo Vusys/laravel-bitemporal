@@ -20,7 +20,7 @@ final class BootLintMutableDatetimeCastMutationTest extends IntegrationTestCase
     public function test_exact_message_names_only_the_offending_column(): void
     {
         /** @var MutableDatetimeCastPrice $model */
-        $model = TemporalLens::withoutBootGuards(static fn () => new MutableDatetimeCastPrice);
+        $model = TemporalLens::withoutBootGuards(static fn (): MutableDatetimeCastPrice => new MutableDatetimeCastPrice);
 
         $message = new BootLintMutableDatetimeCast()->check($model);
 
@@ -37,7 +37,7 @@ final class BootLintMutableDatetimeCastMutationTest extends IntegrationTestCase
     public function test_names_only_the_column_with_a_mutable_cast(): void
     {
         /** @var MutableDatetimeCastPrice $model */
-        $model = TemporalLens::withoutBootGuards(static fn () => new MutableDatetimeCastPrice);
+        $model = TemporalLens::withoutBootGuards(static fn (): MutableDatetimeCastPrice => new MutableDatetimeCastPrice);
 
         $message = (string) new BootLintMutableDatetimeCast()->check($model);
 

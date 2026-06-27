@@ -23,7 +23,7 @@ final class BootGuardCollectionAndBuilderMutationTest extends IntegrationTestCas
     public function test_rejects_a_non_bitemporal_collection(): void
     {
         /** @var PlainCollectionPrice $model */
-        $model = TemporalLens::withoutBootGuards(static fn () => new PlainCollectionPrice);
+        $model = TemporalLens::withoutBootGuards(static fn (): PlainCollectionPrice => new PlainCollectionPrice);
 
         $this->assertSame(
             'newCollection() must return a Vusys\Bitemporal\Collections\BitemporalCollection',
@@ -39,7 +39,7 @@ final class BootGuardCollectionAndBuilderMutationTest extends IntegrationTestCas
     public function test_rejects_a_non_bitemporal_builder(): void
     {
         /** @var PlainBuilderPrice $model */
-        $model = TemporalLens::withoutBootGuards(static fn () => new PlainBuilderPrice);
+        $model = TemporalLens::withoutBootGuards(static fn (): PlainBuilderPrice => new PlainBuilderPrice);
 
         $this->assertSame(
             'newEloquentBuilder() must return a Vusys\Bitemporal\BitemporalBuilder',

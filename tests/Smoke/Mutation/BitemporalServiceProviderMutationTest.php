@@ -45,7 +45,7 @@ final class BitemporalServiceProviderMutationTest extends TestCase
      * provider has already bound the locker by the time any test config hook
      * runs).
      */
-    private function registerWithStrategy(string $strategy): Container
+    private function registerWithStrategy(string $strategy): Application
     {
         $previous = Container::getInstance();
 
@@ -103,7 +103,7 @@ final class BitemporalServiceProviderMutationTest extends TestCase
         $this->assertNotNull($app);
 
         $paths = array_map(
-            static fn (string $path): string|false => realpath($path),
+            realpath(...),
             $app->make('migrator')->paths(),
         );
 

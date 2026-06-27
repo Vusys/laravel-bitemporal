@@ -20,7 +20,7 @@ final class BootGuardDimensionsMutationTest extends IntegrationTestCase
     public function test_rejects_a_non_string_dimension(): void
     {
         /** @var BadDimensionsPrice $model */
-        $model = TemporalLens::withoutBootGuards(static fn () => new BadDimensionsPrice);
+        $model = TemporalLens::withoutBootGuards(static fn (): BadDimensionsPrice => new BadDimensionsPrice);
 
         $this->assertSame(
             '$temporalDimensions must be an array of column-name strings',

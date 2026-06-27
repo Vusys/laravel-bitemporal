@@ -560,7 +560,7 @@ final class InteractsWithTimelinesMutationTest extends IntegrationTestCase
     public function test_expect_guard_failure_when_nothing_thrown(): void
     {
         $this->assertFailsFirstLine(
-            fn () => $this->expectGuardFailure(BootGuardRelationType::class, fn () => null),
+            fn () => $this->expectGuardFailure(BootGuardRelationType::class, fn (): null => null),
             'Expected a TemporalConfigurationException including the [BootGuardRelationType] guard failure; none was thrown.',
         );
     }
