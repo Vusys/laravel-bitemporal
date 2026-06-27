@@ -4,24 +4,50 @@ declare(strict_types=1);
 
 namespace Vusys\Bitemporal\Tests\Integration\Database\Mutation;
 
+use Closure;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\ColumnDefinition;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Fluent;
+use RuntimeException;
 use Vusys\Bitemporal\Tests\Fixtures\Models\Product;
 use Vusys\Bitemporal\Tests\Integration\IntegrationTestCase;
 
 /**
  * Pins the exact columns, precision, nullability, defaults, index names and
- * foreign-key behaviour emitted by the temporal Blueprint macros by building a
- * real Blueprint and inspecting its queued columns/commands directly (no DB
- * round-trip, so micro-second precision and index names survive intact).
+ * foreign-key behaviour emitted by the temporal Blueprint macros by inspecting
+ * the queued columns/commands of a real Blueprint directly (no DB round-trip,
+ * so micro-second precision and index names survive intact).
+ *
+ * The Blueprint is captured from inside a Schema::create() callback — which lets
+ * the framework build it with the version-correct constructor (Laravel 11 and
+ * 12+ differ) and lets static analysis resolve the macros on the callback's
+ * Blueprint argument — then a sentinel exception bails out before the DDL runs,
+ * so macros that reference not-yet-declared columns never hit the database.
  */
 final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
 {
-    private function blueprint(string $table = 'macro_prices'): Blueprint
+    /**
+     * Apply $define to a fresh Blueprint and return it without executing any DDL.
+     */
+    private function build(Closure $define, string $table = 'macro_prices'): Blueprint
     {
-        return new Blueprint(DB::connection(), $table);
+        $captured = null;
+
+        try {
+            Schema::create($table, function ($blueprint) use ($define, &$captured): void {
+                $define($blueprint);
+                $captured = $blueprint;
+
+                throw new BlueprintCaptured;
+            });
+        } catch (BlueprintCaptured) {
+            // Captured the queued blueprint; the create() never reached the grammar.
+        }
+
+        $this->assertInstanceOf(Blueprint::class, $captured);
+
+        return $captured;
     }
 
     private function hasColumn(Blueprint $b, string $name): bool
@@ -57,6 +83,9 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
         ));
     }
 
+    /**
+     * @return Fluent<string, mixed>
+     */
     private function onlyIndex(Blueprint $b): Fluent
     {
         $indexes = $this->commandsNamed($b, 'index');
@@ -76,8 +105,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
 
     public function test_valid_period_emits_precise_columns_with_defaults(): void
     {
-        $b = $this->blueprint();
-        $b->validPeriod();
+        $b = $this->build(fn ($t) => $t->validPeriod());
 
         // valid_from: datetime(6), NOT NULL by default.
         $this->assertDateTime($this->column($b, 'valid_from'), nullable: false);
@@ -94,8 +122,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
 
     public function test_temporal_period_matches_valid_period(): void
     {
-        $b = $this->blueprint();
-        $b->temporalPeriod();
+        $b = $this->build(fn ($t) => $t->temporalPeriod());
 
         $this->assertDateTime($this->column($b, 'valid_from'), nullable: false);
         $this->assertDateTime($this->column($b, 'valid_to'), nullable: true);
@@ -105,8 +132,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
 
     public function test_recorded_period_emits_precise_columns(): void
     {
-        $b = $this->blueprint();
-        $b->recordedPeriod();
+        $b = $this->build(fn ($t) => $t->recordedPeriod());
 
         $this->assertDateTime($this->column($b, 'recorded_from'), nullable: false);
         $this->assertDateTime($this->column($b, 'recorded_to'), nullable: true);
@@ -116,8 +142,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
 
     public function test_bitemporal_periods_emits_all_four_period_columns(): void
     {
-        $b = $this->blueprint();
-        $b->bitemporalPeriods();
+        $b = $this->build(fn ($t) => $t->bitemporalPeriods());
 
         $this->assertDateTime($this->column($b, 'valid_from'), nullable: false);
         $this->assertDateTime($this->column($b, 'valid_to'), nullable: true);
@@ -130,8 +155,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
 
     public function test_nullable_argument_makes_from_columns_nullable(): void
     {
-        $b = $this->blueprint();
-        $b->bitemporalPeriods(nullable: true);
+        $b = $this->build(fn ($t) => $t->bitemporalPeriods(nullable: true));
 
         $this->assertTrue($this->column($b, 'valid_from')->get('nullable'));
         $this->assertTrue($this->column($b, 'recorded_from')->get('nullable'));
@@ -144,8 +168,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
 
     public function test_valid_period_options_override_and_keep_defaults(): void
     {
-        $b = $this->blueprint();
-        $b->validPeriod(['valid_from' => 'vf']);
+        $b = $this->build(fn ($t) => $t->validPeriod(['valid_from' => 'vf']));
 
         // override applied (kills "$columns() only" UnwrapArrayMerge)
         $this->assertTrue($this->hasColumn($b, 'vf'));
@@ -157,8 +180,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
 
     public function test_temporal_period_options_override_and_keep_defaults(): void
     {
-        $b = $this->blueprint();
-        $b->temporalPeriod(['valid_from' => 'vf']);
+        $b = $this->build(fn ($t) => $t->temporalPeriod(['valid_from' => 'vf']));
 
         $this->assertTrue($this->hasColumn($b, 'vf'));
         $this->assertTrue($this->hasColumn($b, 'valid_to'));
@@ -167,8 +189,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
 
     public function test_recorded_period_options_override_and_keep_defaults(): void
     {
-        $b = $this->blueprint();
-        $b->recordedPeriod(['recorded_from' => 'rf']);
+        $b = $this->build(fn ($t) => $t->recordedPeriod(['recorded_from' => 'rf']));
 
         $this->assertTrue($this->hasColumn($b, 'rf'));
         $this->assertTrue($this->hasColumn($b, 'recorded_to'));
@@ -176,8 +197,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
 
     public function test_bitemporal_periods_options_override_and_keep_defaults(): void
     {
-        $b = $this->blueprint();
-        $b->bitemporalPeriods(['valid_from' => 'vf', 'recorded_from' => 'rf']);
+        $b = $this->build(fn ($t) => $t->bitemporalPeriods(['valid_from' => 'vf', 'recorded_from' => 'rf']));
 
         $this->assertTrue($this->hasColumn($b, 'vf'));
         $this->assertTrue($this->hasColumn($b, 'rf'));
@@ -190,8 +210,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
 
     public function test_bitemporal_foreign_for_restricts_on_delete(): void
     {
-        $b = $this->blueprint();
-        $b->bitemporalForeignFor(Product::class);
+        $b = $this->build(fn ($t) => $t->bitemporalForeignFor(Product::class));
 
         $this->assertTrue($this->hasColumn($b, 'product_id'));
 
@@ -204,8 +223,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
 
     public function test_bitemporal_morphs_for_emits_morph_columns(): void
     {
-        $b = $this->blueprint();
-        $b->bitemporalMorphsFor('owner');
+        $b = $this->build(fn ($t) => $t->bitemporalMorphsFor('owner'));
 
         $this->assertTrue($this->hasColumn($b, 'owner_type'));
         $this->assertTrue($this->hasColumn($b, 'owner_id'));
@@ -216,8 +234,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
 
     public function test_prevent_temporal_overlaps_index_columns(): void
     {
-        $b = $this->blueprint();
-        $b->preventTemporalOverlaps(['product_id', 'tenant_id'], ['currency']);
+        $b = $this->build(fn ($t) => $t->preventTemporalOverlaps(['product_id', 'tenant_id'], ['currency']));
 
         $index = $this->onlyIndex($b);
         $this->assertSame(
@@ -228,8 +245,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
 
     public function test_prevent_bitemporal_overlaps_index_columns(): void
     {
-        $b = $this->blueprint();
-        $b->preventBitemporalOverlaps(['product_id', 'tenant_id'], ['currency']);
+        $b = $this->build(fn ($t) => $t->preventBitemporalOverlaps(['product_id', 'tenant_id'], ['currency']));
 
         $index = $this->onlyIndex($b);
         $this->assertSame(
@@ -242,8 +258,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
 
     public function test_overlap_index_uses_plain_name_when_short(): void
     {
-        $b = $this->blueprint('prices');
-        $b->preventTemporalOverlaps(['product_id']);
+        $b = $this->build(fn ($t) => $t->preventTemporalOverlaps(['product_id']), 'prices');
 
         $this->assertSame('prices_temporal_overlap', $this->onlyIndex($b)->get('index'));
     }
@@ -254,8 +269,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
         $name = "{$table}_temporal_overlap";
         $this->assertSame(64, strlen($name));
 
-        $b = $this->blueprint($table);
-        $b->preventTemporalOverlaps(['product_id']);
+        $b = $this->build(fn ($t) => $t->preventTemporalOverlaps(['product_id']), $table);
 
         // <= 64 keeps the plain name; the "< 64" / "> 64" mutants would hash it.
         $this->assertSame($name, $this->onlyIndex($b)->get('index'));
@@ -267,8 +281,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
         $name = "{$table}_temporal_overlap";
         $this->assertGreaterThan(64, strlen($name));
 
-        $b = $this->blueprint($table);
-        $b->preventTemporalOverlaps(['product_id']);
+        $b = $this->build(fn ($t) => $t->preventTemporalOverlaps(['product_id']), $table);
 
         // Exact "{suffix}_" . md5(name) — pins concat order and both operands.
         $this->assertSame('temporal_overlap_'.md5($name), $this->onlyIndex($b)->get('index'));
@@ -280,8 +293,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
         $name = "{$table}_bitemporal_overlap";
         $this->assertGreaterThan(64, strlen($name));
 
-        $b = $this->blueprint($table);
-        $b->preventBitemporalOverlaps(['product_id']);
+        $b = $this->build(fn ($t) => $t->preventBitemporalOverlaps(['product_id']), $table);
 
         $this->assertSame('bitemporal_overlap_'.md5($name), $this->onlyIndex($b)->get('index'));
     }
@@ -298,8 +310,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
             'is_retraction' => 'cir',
         ]]);
 
-        $b = $this->blueprint();
-        $b->bitemporalPeriods();
+        $b = $this->build(fn ($t) => $t->bitemporalPeriods());
 
         foreach (['cfrom', 'cto', 'crf', 'crt', 'cir'] as $name) {
             $this->assertTrue($this->hasColumn($b, $name), "expected configured column {$name}");
@@ -312,8 +323,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
     {
         config(['bitemporal.columns' => 'not-an-array']);
 
-        $b = $this->blueprint();
-        $b->validPeriod();
+        $b = $this->build(fn ($t) => $t->validPeriod());
 
         // All five defaults present — the ArrayOneItem mutant would keep only valid_from.
         $this->assertTrue($this->hasColumn($b, 'valid_from'));
@@ -327,10 +337,15 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
             'valid_from' => ['unexpected'],
         ]]);
 
-        $b = $this->blueprint();
-        $b->validPeriod();
+        $b = $this->build(fn ($t) => $t->validPeriod());
 
         // is_string() guard rejects the array, default name is used.
         $this->assertTrue($this->hasColumn($b, 'valid_from'));
     }
 }
+
+/**
+ * Sentinel thrown from the Schema::create() callback to bail out with the queued
+ * Blueprint before the create reaches the database grammar.
+ */
+final class BlueprintCaptured extends RuntimeException {}
