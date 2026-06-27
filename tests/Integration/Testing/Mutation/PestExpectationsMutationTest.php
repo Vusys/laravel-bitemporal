@@ -28,18 +28,13 @@ namespace Vusys\Bitemporal\Tests\Integration\Testing\Mutation {
      */
     final class PestExpectationShim
     {
-        public mixed $value;
-
         /** @var array<string, array{class: string, handler: Closure}> */
         public static array $intercepts = [];
 
         /** @var array<string, Closure> */
         public static array $extends = [];
 
-        public function __construct(mixed $value = null)
-        {
-            $this->value = $value;
-        }
+        public function __construct(public mixed $value = null) {}
 
         public function intercept(string $name, string $class, Closure $handler): self
         {
@@ -163,7 +158,7 @@ namespace Vusys\Bitemporal\Tests\Integration\Testing\Mutation {
         public function test_to_throw_temporal_exception_nothing_thrown_throws(): void
         {
             $this->assertAssertionFails(
-                fn () => expect(fn () => null)->toThrowTemporalException(TemporalInvalidSpellException::class),
+                fn () => expect(fn (): null => null)->toThrowTemporalException(TemporalInvalidSpellException::class),
                 'Expected '.TemporalInvalidSpellException::class.' to be thrown; nothing was thrown.',
             );
         }

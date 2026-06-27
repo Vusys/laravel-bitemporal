@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Vusys\Bitemporal\Tests\Integration\Boot\Mutation;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Vusys\Bitemporal\Boot\BootLints;
@@ -32,11 +33,10 @@ final class BootLintsMutationTest extends IntegrationTestCase
      * @template T of \Illuminate\Database\Eloquent\Model
      *
      * @param  class-string<T>  $class
-     * @return T
      */
-    private function clean(string $class): object
+    private function clean(string $class): Model
     {
-        $model = TemporalLens::withoutBootGuards(static fn () => new $class);
+        $model = TemporalLens::withoutBootGuards(static fn (): object => new $class);
         $this->assertInstanceOf($class, $model);
 
         return $model;

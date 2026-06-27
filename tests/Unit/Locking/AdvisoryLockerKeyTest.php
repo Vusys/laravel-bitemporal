@@ -29,6 +29,7 @@ final class KeyStubModel extends Model
 
     private mixed $keyValue = 1;
 
+    #[\Override]
     public function getMorphClass(): string
     {
         return $this->morph;
@@ -45,6 +46,7 @@ final class KeyStubModel extends Model
      * Bypass Eloquent's attribute casting so we keep full control over the id
      * type (int / string / float / null) that key() inspects.
      */
+    #[\Override]
     public function getKey(): mixed
     {
         return $this->keyValue;

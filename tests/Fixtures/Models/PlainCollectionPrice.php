@@ -26,6 +26,7 @@ class PlainCollectionPrice extends Model
      * @param  array<int, static>  $models
      * @return Collection<int, static>
      */
+    #[\Override]
     public function newCollection(array $models = []): Collection
     {
         return new Collection($models);

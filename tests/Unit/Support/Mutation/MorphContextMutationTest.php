@@ -18,7 +18,7 @@ final class MorphContextMutationTest extends TestCase
     {
         return new class($key, $morph) extends Model
         {
-            public function __construct(private mixed $k = null, private string $m = 'widget')
+            public function __construct(private readonly mixed $k = null, private readonly string $m = 'widget')
             {
                 parent::__construct();
             }
@@ -86,14 +86,14 @@ final class MorphContextMutationTest extends TestCase
     // and '5' (string) are equal in either argument position.
     public function test_equals_coerces_ids_to_strings(): void
     {
-        $this->assertTrue((new MorphContext('customer', 5))->equals(new MorphContext('customer', '5')));
-        $this->assertTrue((new MorphContext('customer', '5'))->equals(new MorphContext('customer', 5)));
+        $this->assertTrue(new MorphContext('customer', 5)->equals(new MorphContext('customer', '5')));
+        $this->assertTrue(new MorphContext('customer', '5')->equals(new MorphContext('customer', 5)));
     }
 
     // Kills the __toString Concat / ConcatOperandRemoval mutants.
     public function test_string_form_is_type_colon_id(): void
     {
         $this->assertSame('customer:42', (string) new MorphContext('customer', 42));
-        $this->assertSame('customer:42', (new MorphContext('customer', 42))->__toString());
+        $this->assertSame('customer:42', new MorphContext('customer', 42)->__toString());
     }
 }

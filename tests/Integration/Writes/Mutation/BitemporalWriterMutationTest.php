@@ -86,7 +86,7 @@ final class BitemporalWriterMutationTest extends IntegrationTestCase
         // the NOT NULL valid_from insert, whose message never mentions format().
         $message = null;
         try {
-            $product->prices()->correct(['amount' => 500], validFrom: null, validTo: '2026-06-01');
+            $product->prices()->correct(['amount' => 500], validTo: '2026-06-01');
         } catch (Throwable $e) {
             $message = $e->getMessage();
         }
@@ -455,8 +455,6 @@ final class BitemporalWriterMutationTest extends IntegrationTestCase
         $this->expectException(TemporalWriteConflictException::class);
         $product->prices()->correct(
             ['amount' => 1500],
-            validFrom: null,
-            validTo: null,
             expectedCurrentAttributes: ['amount' => 1000],
         );
     }

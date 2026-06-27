@@ -26,6 +26,7 @@ class PlainBuilderPrice extends Model
      * @param  \Illuminate\Database\Query\Builder  $query
      * @return Builder<Model>
      */
+    #[\Override]
     public function newEloquentBuilder($query): Builder
     {
         return new Builder($query);

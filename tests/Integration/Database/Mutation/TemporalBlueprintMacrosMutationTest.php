@@ -35,7 +35,7 @@ final class TemporalBlueprintMacrosMutationTest extends IntegrationTestCase
         $captured = null;
 
         try {
-            Schema::create($table, function ($blueprint) use ($define, &$captured): void {
+            Schema::create($table, function ($blueprint) use ($define, &$captured): never {
                 $define($blueprint);
                 $captured = $blueprint;
 

@@ -207,7 +207,7 @@ final class BackfillMutationTest extends IntegrationTestCase
         // fatals on temporalMetadata()); the Concat mutants reorder/drop operands.
         $message = null;
         try {
-            new BitemporalBackfill(new Product, new Product, [], new ParentRowLocker, app(Dispatcher::class));
+            new BitemporalBackfill(new Product, new Product, [], new ParentRowLocker, resolve(Dispatcher::class));
             $this->fail('expected a TemporalInvalidSpellException');
         } catch (TemporalInvalidSpellException $e) {
             $message = $e->getMessage();

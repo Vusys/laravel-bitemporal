@@ -31,9 +31,7 @@ final class LensStackMutationTest extends TestCase
         $before = $stack->bootGuardsSuppressed();
         $this->assertFalse($before);
 
-        $insideValue = $stack->withoutBootGuards(function () use ($stack): bool {
-            return $stack->bootGuardsSuppressed();
-        });
+        $insideValue = $stack->withoutBootGuards(fn (): bool => $stack->bootGuardsSuppressed());
 
         $this->assertTrue($insideValue);
 

@@ -23,7 +23,7 @@ final class HasTemporalCastsMutationTest extends IntegrationTestCase
     public function test_a_model_with_auto_casts_disabled_keeps_its_declared_cast(): void
     {
         /** @var MutableDatetimeCastPrice $model */
-        $model = TemporalLens::withoutBootGuards(static fn () => new MutableDatetimeCastPrice);
+        $model = TemporalLens::withoutBootGuards(static fn (): MutableDatetimeCastPrice => new MutableDatetimeCastPrice);
 
         // autoApplyTemporalCasts === false => the trait must return early and
         // leave the declared mutable cast untouched. Both boolean mutants on the
