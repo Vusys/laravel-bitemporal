@@ -32,6 +32,7 @@ final class PolymorphicGroupingMutationTest extends IntegrationTestCase
 
     /**
      * @param  iterable<int, Model>  $models
+     * @return BitemporalCollection<int, Model>
      */
     private function collect(iterable $models): BitemporalCollection
     {
@@ -109,6 +110,7 @@ final class PolymorphicGroupingMutationTest extends IntegrationTestCase
     public function test_non_belongs_to_relation_throws(): void
     {
         $related = TemporalLens::withoutBootGuards(fn (): MisrelatedPrice => new MisrelatedPrice(['id' => 1]));
+        $this->assertInstanceOf(MisrelatedPrice::class, $related);
 
         $this->expectException(TemporalConfigurationException::class);
         $this->expectExceptionMessage('BelongsTo or MorphTo relation');

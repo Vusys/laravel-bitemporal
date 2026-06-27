@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Vusys\Bitemporal\Tests\Integration\Lens\Mutation;
 
+use Illuminate\Support\Collection;
 use Vusys\Bitemporal\BitemporalBuilder;
 use Vusys\Bitemporal\Concerns\InteractsWithLens;
 use Vusys\Bitemporal\Facades\TemporalLens;
@@ -42,6 +43,7 @@ final class InteractsWithLensMutationTest extends IntegrationTestCase
             ->withoutLens()
             ->get());
 
+        $this->assertInstanceOf(Collection::class, $rows);
         $this->assertCount(2, $rows);
     }
 
@@ -71,6 +73,7 @@ final class InteractsWithLensMutationTest extends IntegrationTestCase
             ->whereTemporalEntity($product)
             ->get());
 
+        $this->assertInstanceOf(Collection::class, $rows);
         $this->assertCount(2, $rows);
     }
 
@@ -84,8 +87,12 @@ final class InteractsWithLensMutationTest extends IntegrationTestCase
             ->whereTemporalEntity($product)
             ->get());
 
+        $this->assertInstanceOf(Collection::class, $rows);
         $this->assertCount(1, $rows);
-        $this->assertSame(1000, $rows->first()?->amount);
+
+        $first = $rows->first();
+        $this->assertInstanceOf(ProductPrice::class, $first);
+        $this->assertSame(1000, $first->amount);
     }
 
     // Kills captureLens TrueValue (hasCapturedFrame left false): a captured
@@ -99,10 +106,14 @@ final class InteractsWithLensMutationTest extends IntegrationTestCase
             ->captureLens());
 
         // The asOf frame is now popped; the captured frame must persist.
+        $this->assertInstanceOf(BitemporalBuilder::class, $builder);
         $rows = $builder->get();
 
         $this->assertCount(1, $rows);
-        $this->assertSame(1000, $rows->first()?->amount);
+
+        $first = $rows->first();
+        $this->assertInstanceOf(ProductPrice::class, $first);
+        $this->assertSame(1000, $first->amount);
     }
 
     // Kills the getModels ArrayItemRemoval (`['*']` -> `[]`): getModels() with no
@@ -114,7 +125,10 @@ final class InteractsWithLensMutationTest extends IntegrationTestCase
         $models = ProductPrice::query()->whereTemporalEntity($product)->getModels();
 
         $this->assertNotSame([], $models);
-        $this->assertSame(1000, $models[0]->amount);
+
+        $first = $models[0];
+        $this->assertInstanceOf(ProductPrice::class, $first);
+        $this->assertSame(1000, $first->amount);
     }
 
     // Kills the PublicVisibility mutants on captureLens / markValidAtPinned /

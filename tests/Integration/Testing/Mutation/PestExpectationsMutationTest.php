@@ -20,6 +20,11 @@ namespace Vusys\Bitemporal\Tests\Integration\Testing\Mutation {
      * here). The global expect() helper at the bottom of this file points at it,
      * which lets PestExpectations::register() wire its interceptors/extensions
      * onto this shim exactly as it would onto Pest.
+     *
+     * @method self validAt(\Carbon\CarbonInterface|string $date)
+     * @method self knownAt(\Carbon\CarbonInterface|string $date)
+     * @method self toHaveTemporalAttributes(array<string, mixed> $attributes)
+     * @method self toThrowTemporalException(string $exception, ?string $messageSubstring = null)
      */
     final class PestExpectationShim
     {
@@ -50,6 +55,9 @@ namespace Vusys\Bitemporal\Tests\Integration\Testing\Mutation {
             return $this;
         }
 
+        /**
+         * @param  array<int, mixed>  $arguments
+         */
         public function __call(string $name, array $arguments): mixed
         {
             if (isset(self::$intercepts[$name]) && $this->value instanceof self::$intercepts[$name]['class']) {
@@ -171,6 +179,9 @@ namespace Vusys\Bitemporal\Tests\Integration\Testing\Mutation {
 
         // ----- helpers ------------------------------------------------------
 
+        /**
+         * @return BitemporalBuilder<ProductPrice>
+         */
         private function builderWithPrice(int $amount): BitemporalBuilder
         {
             $product = $this->makeProduct();

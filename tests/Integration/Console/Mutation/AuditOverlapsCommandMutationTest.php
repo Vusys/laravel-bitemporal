@@ -45,7 +45,16 @@ final class AuditOverlapsCommandMutationTest extends IntegrationTestCase
         // Tuple key + row labels are reported exactly (kills the var_export/concat
         // mutants and the keyLabel ternary that would print "int" instead of the id).
         $this->assertStringContainsString('overlap in tuple ['.$expectedTuple.']', $output);
-        $this->assertStringContainsString('#'.$rows[0]->getKey().' and #'.$rows[1]->getKey(), $output);
+
+        $firstRow = $rows[0];
+        $secondRow = $rows[1];
+        $this->assertInstanceOf(ProductPrice::class, $firstRow);
+        $this->assertInstanceOf(ProductPrice::class, $secondRow);
+        $firstKey = $firstRow->getKey();
+        $secondKey = $secondRow->getKey();
+        $this->assertIsInt($firstKey);
+        $this->assertIsInt($secondKey);
+        $this->assertStringContainsString('#'.$firstKey.' and #'.$secondKey, $output);
     }
 
     public function test_rows_on_different_entities_do_not_overlap(): void
@@ -84,9 +93,13 @@ final class AuditOverlapsCommandMutationTest extends IntegrationTestCase
         $supplier = Supplier::query()->create(['name' => 'Globex']);
 
         // Same numeric key (1) in separate tables, identical overlapping periods.
-        $this->assertSame($customer->getKey(), $supplier->getKey());
-        $this->seedAddressFor($customer->getMorphClass(), $customer->getKey());
-        $this->seedAddressFor($supplier->getMorphClass(), $supplier->getKey());
+        $customerKey = $customer->getKey();
+        $supplierKey = $supplier->getKey();
+        $this->assertIsInt($customerKey);
+        $this->assertIsInt($supplierKey);
+        $this->assertSame($customerKey, $supplierKey);
+        $this->seedAddressFor($customer->getMorphClass(), $customerKey);
+        $this->seedAddressFor($supplier->getMorphClass(), $supplierKey);
 
         $exit = Artisan::call('bitemporal:audit-overlaps', ['--model' => Address::class]);
 
@@ -120,7 +133,9 @@ final class AuditOverlapsCommandMutationTest extends IntegrationTestCase
 
     private function seedAddress(Customer $owner, string $validFrom, ?string $validTo): void
     {
-        $this->seedAddressFor($owner->getMorphClass(), $owner->getKey(), $validFrom, $validTo);
+        $ownerId = $owner->getKey();
+        $this->assertIsInt($ownerId);
+        $this->seedAddressFor($owner->getMorphClass(), $ownerId, $validFrom, $validTo);
     }
 
     private function seedAddressFor(string $ownerType, int|string $ownerId, string $validFrom = '2026-01-01', ?string $validTo = null): void
