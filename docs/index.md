@@ -37,5 +37,3 @@ Then reach for the rest as you need it:
 - [Dimensions](06-dimensions.md) · [The as-of lens](07-as-of-lens.md) · [Events](08-events.md)
 - [Configuration](09-configuration.md) · [Exception catalogue](09a-exception-catalogue.md) · [Testing](10-testing.md)
 - [Temporal pivots](11-pivots.md) · [Diffs and timelines](12-diffs-and-timelines.md) · [Boot guards and lints](13-boot-guards-and-lints.md) · [Commands](14-commands.md)
-
-For where the package is in its build and what is still planned, see the [implementation status and roadmap](https://github.com/Vusys/laravel-bitemporal#status).
