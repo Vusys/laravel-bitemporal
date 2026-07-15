@@ -43,6 +43,8 @@ return [
 
     'write_conflict' => [
         'lock_timeout' => 'Lock timeout acquiring temporal write lock for :entity (timeout :ms ms).',
+        'deadlock' => 'Deadlock acquiring temporal write lock for :entity; deadlock-retry budget exhausted.',
+        'connection_changed' => 'Database connection swapped mid-write for :entity; advisory lock can no longer be trusted.',
         'entity_missing' => 'Cannot lock temporal entity :model#:id: row not found.',
         'expectation_failed' => "optimistic check failed: the current value of ':column' is not what was expected; another write got there first",
         'idempotency_conflict' => "idempotency key ':key' was already used with different parameters",
