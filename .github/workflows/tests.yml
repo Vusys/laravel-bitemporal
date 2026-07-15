@@ -20,37 +20,52 @@ jobs:
 
     name: PHP ${{ matrix.php }} · Laravel ${{ matrix.laravel }} · ${{ matrix.db }}
 
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
-          MYSQL_DATABASE: testing
-        ports: ['33306:3306']
-        options: >-
-          --health-cmd="mysqladmin ping" --health-interval=10s
-          --health-timeout=5s --health-retries=5
-      mariadb:
-        image: mariadb:10.11
-        env:
-          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 'yes'
-          MARIADB_DATABASE: testing
-        ports: ['33307:3306']
-        options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
-          --health-interval=10s --health-timeout=5s --health-retries=5
-      pgsql:
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: testing
-        ports: ['54320:5432']
-        options: >-
-          --health-cmd=pg_isready --health-interval=10s
-          --health-timeout=5s --health-retries=5
-
     steps:
       - uses: actions/checkout@v4
+
+      # Only the database this cell targets is provisioned. Previously all
+      # three DB services started on every cell, which tripled the surface
+      # for the intermittent "address already in use" host-port-bind race on
+      # hosted runners (and booted two containers that were never used).
+      - name: Start ${{ matrix.db }}
+        if: matrix.db != 'sqlite'
+        run: |
+          case "${{ matrix.db }}" in
+            mysql)
+              docker run -d --name db -p 127.0.0.1:33306:3306 \
+                -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -e MYSQL_DATABASE=testing \
+                --health-cmd="mysqladmin ping" --health-interval=10s \
+                --health-timeout=5s --health-retries=5 mysql:8.0
+              ;;
+            mariadb)
+              docker run -d --name db -p 127.0.0.1:33306:3306 \
+                -e MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=yes -e MARIADB_DATABASE=testing \
+                --health-cmd="healthcheck.sh --connect --innodb_initialized" \
+                --health-interval=10s --health-timeout=5s --health-retries=5 mariadb:10.11
+              ;;
+            pgsql)
+              docker run -d --name db -p 127.0.0.1:54320:5432 \
+                -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=testing \
+                --health-cmd=pg_isready --health-interval=10s \
+                --health-timeout=5s --health-retries=5 postgres:16
+              ;;
+          esac
+
+      - name: Wait for ${{ matrix.db }} to be healthy
+        if: matrix.db != 'sqlite'
+        run: |
+          for i in $(seq 1 30); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' db 2>/dev/null || echo missing)
+            if [ "$status" = "healthy" ]; then
+              echo "db is healthy"
+              exit 0
+            fi
+            echo "waiting for db (status: $status)..."
+            sleep 2
+          done
+          echo "db failed to become healthy"
+          docker logs db || true
+          exit 1
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -76,7 +91,7 @@ jobs:
           DB_CONNECTION: ${{ matrix.db }}
           DB_HOST: 127.0.0.1
           DB_DATABASE: testing
-          DB_PORT: ${{ matrix.db == 'pgsql' && '54320' || matrix.db == 'mariadb' && '33307' || '33306' }}
+          DB_PORT: ${{ matrix.db == 'pgsql' && '54320' || '33306' }}
           DB_USERNAME: ${{ matrix.db == 'pgsql' && 'postgres' || 'root' }}
           DB_PASSWORD: ${{ matrix.db == 'pgsql' && 'postgres' || '' }}
 
