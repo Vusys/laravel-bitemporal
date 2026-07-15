@@ -104,7 +104,7 @@ Macro reference:
 
 `$options` lets you override individual column names (e.g. `bitemporalPeriods(['valid_from' => 'effective_from'])`); `$nullable` makes the *from* columns nullable for backfill scenarios.
 
-> **On overlap prevention.** Today `preventBitemporalOverlaps()` emits a covering composite index on every driver. The PostgreSQL `EXCLUDE USING gist` exclusion constraint — a true database-level guarantee — is on the roadmap. The writer's application-level overlap detection is the primary guarantee on every engine regardless, so a correct setup never produces overlaps; the index/constraint is defence in depth.
+> **On overlap prevention.** `preventBitemporalOverlaps()` emits a covering composite index on every driver. The writer's application-level overlap detection is the primary guarantee on every engine, so a correct setup never produces overlaps; the index is defence in depth.
 
 ### Polymorphic entities
 

@@ -50,7 +50,7 @@ A write through a relation that has dimensions but no `forDimensions()` call is 
 
 ## NULL is a value
 
-A `null` dimension value is treated as a distinct, matchable value (not "any"). `forDimensions(['region' => null])` scopes to exactly the rows whose region is null, and is a different timeline from `['region' => 'EU']`. On engines that need it, this is the case the roadmap's `NULLS NOT DISTINCT` / null-safe-comparison work hardens at the database level; the application logic already treats null as a first-class dimension value.
+A `null` dimension value is treated as a distinct, matchable value (not "any"). `forDimensions(['region' => null])` scopes to exactly the rows whose region is null, and is a different timeline from `['region' => 'EU']`. The application logic treats null as a first-class dimension value.
 
 ## Multiple dimensions
 
