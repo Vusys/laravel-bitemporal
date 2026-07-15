@@ -56,7 +56,7 @@ factory methods — the factory name plus the message encode the scenario (there
 | `TemporalMissingDimensionException` | `pendingWhere`, `forbiddenAttribute`, `incomplete`, `unknownDimension`, `conflict` |
 | `TemporalOverlapException` | `betweenSegments` |
 | `TemporalCardinalityException` | `expectedOneFoundMany`, `expectedOneFoundNone`, `noAssignmentToCorrect`, `noAssignmentToDetach` |
-| `TemporalWriteConflictException` | `entityMissing`, `clockRegressed`, `expectationFailed`, `idempotencyKeyReused` |
+| `TemporalWriteConflictException` | `entityMissing`, `clockRegressed`, `lockTimeout`, `deadlock`, `connectionChanged`, `expectationFailed`, `idempotencyKeyReused` |
 | `TemporalUnsupportedDatabaseException` | `btreeGistMissing`, `advisoryLocksUnsupported`, `engineVersionBelowMinimum` |
 | `TemporalDomainException` | `invariant`, `clockSkew` |
 

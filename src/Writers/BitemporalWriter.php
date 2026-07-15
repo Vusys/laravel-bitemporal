@@ -10,6 +10,7 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\QueryException;
 use Vusys\Bitemporal\BitemporalBuilder;
 use Vusys\Bitemporal\Events\TemporalChangeCommitted;
 use Vusys\Bitemporal\Events\TemporalChangeStarting;
@@ -213,20 +214,29 @@ final readonly class BitemporalWriter
 
     public function forceDeleteHistory(): TemporalHardDeleteCommitted
     {
-        $committed = $this->connection()->transaction(function (): TemporalHardDeleteCommitted {
-            $this->locker->lockFor($this->entity, $this->dimensions, $this->parentLockTimeout());
+        $handle = null;
 
-            $ids = array_map(
-                static fn (Model $model): mixed => $model->getKey(),
-                $this->newQuery()->get()->all(),
-            );
+        try {
+            $committed = $this->connection()->transaction(function () use (&$handle): TemporalHardDeleteCommitted {
+                $handle?->release();
+                $handle = $this->locker->lockFor($this->entity, $this->dimensions, $this->lockTimeoutMs());
 
-            $this->events->dispatch(new TemporalHardDeleteStarting($this->related::class, $this->entity, $this->dimensions, $ids));
+                $ids = array_map(
+                    static fn (Model $model): mixed => $model->getKey(),
+                    $this->newQuery()->get()->all(),
+                );
 
-            $this->newQuery()->delete();
+                $this->events->dispatch(new TemporalHardDeleteStarting($this->related::class, $this->entity, $this->dimensions, $ids));
 
-            return new TemporalHardDeleteCommitted($this->related::class, $this->entity, $this->dimensions, $ids);
-        });
+                $this->newQuery()->delete();
+
+                return new TemporalHardDeleteCommitted($this->related::class, $this->entity, $this->dimensions, $ids);
+            });
+        } catch (QueryException $exception) {
+            throw $this->translateDeadlock($exception);
+        } finally {
+            $handle?->release();
+        }
 
         $this->events->dispatch($committed);
 
@@ -255,57 +265,69 @@ final readonly class BitemporalWriter
             }
         }
 
-        $result = $this->connection()->transaction(function () use ($windowResolver, $transform, $attributes, $compact, $starting, $committed, $expectedCurrentAttributes): TemporalWriteCommitted {
-            $this->locker->lockFor($this->entity, $this->dimensions, $this->parentLockTimeout());
+        $handle = null;
 
-            $recordedAt = $this->captureRecordedAt();
-            $currentModels = $this->loadCurrentKnown();
-            $valueColumns = $this->resolveValueColumns($currentModels, $attributes);
-            $current = $this->toTimeline($currentModels, $valueColumns);
+        try {
+            $result = $this->connection()->transaction(function () use (&$handle, $windowResolver, $transform, $attributes, $compact, $starting, $committed, $expectedCurrentAttributes): TemporalWriteCommitted {
+                // A prior deadlock-retry attempt may have left a session-scoped
+                // advisory lock held; release it before re-acquiring so GET_LOCK
+                // stays balanced across retries.
+                $handle?->release();
+                $handle = $this->locker->lockFor($this->entity, $this->dimensions, $this->lockTimeoutMs());
 
-            $window = $windowResolver($current);
+                $recordedAt = $this->captureRecordedAt();
+                $currentModels = $this->loadCurrentKnown();
+                $valueColumns = $this->resolveValueColumns($currentModels, $attributes);
+                $current = $this->toTimeline($currentModels, $valueColumns);
 
-            if ($expectedCurrentAttributes !== null) {
-                $this->assertExpectedCurrent($current, $window, $expectedCurrentAttributes);
-            }
+                $window = $windowResolver($current);
 
-            $next = $transform($current, $window, $valueColumns);
+                if ($expectedCurrentAttributes !== null) {
+                    $this->assertExpectedCurrent($current, $window, $expectedCurrentAttributes);
+                }
 
-            $before = $next->count();
-            if ($compact ?? $this->compactByDefault()) {
-                $next = $next->compact(array_keys($this->dimensions));
-            }
-            $compacted = $next->count() !== $before;
+                $next = $transform($current, $window, $valueColumns);
 
-            $this->events->dispatch($starting($window));
+                $before = $next->count();
+                if ($compact ?? $this->compactByDefault()) {
+                    $next = $next->compact(array_keys($this->dimensions));
+                }
+                $compacted = $next->count() !== $before;
 
-            $plan = $this->splitter->plan($current, $next);
+                $this->events->dispatch($starting($window));
 
-            $rowsClosed = [];
-            foreach ($plan['closeIndexes'] as $index) {
-                $model = $currentModels[$index];
-                $model->setAttribute($this->meta->recordedTo, $recordedAt);
-                $this->persist($model);
-                $rowsClosed[] = $model;
-            }
+                $plan = $this->splitter->plan($current, $next);
 
-            $rowsInserted = [];
-            foreach ($plan['insert'] as $segment) {
-                $row = $this->buildRow($segment, $recordedAt);
-                $this->persist($row);
-                $rowsInserted[] = $row;
-            }
+                $rowsClosed = [];
+                foreach ($plan['closeIndexes'] as $index) {
+                    $model = $currentModels[$index];
+                    $model->setAttribute($this->meta->recordedTo, $recordedAt);
+                    $this->persist($model);
+                    $rowsClosed[] = $model;
+                }
 
-            if ($compacted) {
-                $this->events->dispatch(new TemporalCompactionPerformed(
-                    $this->related::class, $this->entity, $this->dimensions, $before, $next->count(),
-                ));
-            }
+                $rowsInserted = [];
+                foreach ($plan['insert'] as $segment) {
+                    $row = $this->buildRow($segment, $recordedAt);
+                    $this->persist($row);
+                    $rowsInserted[] = $row;
+                }
 
-            $this->assertNoCurrentOverlaps();
+                if ($compacted) {
+                    $this->events->dispatch(new TemporalCompactionPerformed(
+                        $this->related::class, $this->entity, $this->dimensions, $before, $next->count(),
+                    ));
+                }
 
-            return $committed($recordedAt, $rowsClosed, $rowsInserted, $compacted);
-        }, $this->deadlockRetryAttempts());
+                $this->assertNoCurrentOverlaps();
+
+                return $committed($recordedAt, $rowsClosed, $rowsInserted, $compacted);
+            }, $this->deadlockRetryAttempts());
+        } catch (QueryException $exception) {
+            throw $this->translateDeadlock($exception);
+        } finally {
+            $handle?->release();
+        }
 
         if ($idempotencyKey !== null) {
             $this->recordIdempotent($idempotencyKey, $operation, $idempotencyInputs, $result);
@@ -777,14 +799,39 @@ final readonly class BitemporalWriter
         return (bool) config('bitemporal.writes.compact_adjacent_segments', true);
     }
 
-    private function parentLockTimeout(): int
+    private function lockTimeoutMs(): int
     {
-        return $this->intConfig('bitemporal.writes.parent_lock_timeout_ms', 5000);
+        // The advisory and parent-row strategies honour their own timeout keys so
+        // GET_LOCK / lock_timeout can be tuned independently of FOR UPDATE waits.
+        return config('bitemporal.writes.lock_strategy', 'parent_row') === 'advisory'
+            ? $this->intConfig('bitemporal.writes.advisory_lock_timeout_ms', 5000)
+            : $this->intConfig('bitemporal.writes.parent_lock_timeout_ms', 5000);
     }
 
     private function deadlockRetryAttempts(): int
     {
         return max(1, $this->intConfig('bitemporal.writes.deadlock_retry_attempts', 1));
+    }
+
+    /**
+     * A deadlock/serialization failure that survives Laravel's transaction-level
+     * retries is a write conflict; surface it as one so callers handle it the
+     * same way regardless of engine. Anything else propagates untouched.
+     */
+    private function translateDeadlock(QueryException $exception): \Throwable
+    {
+        return $this->isDeadlock($exception)
+            ? TemporalWriteConflictException::deadlock($this->entityLabel())
+            : $exception;
+    }
+
+    private function isDeadlock(QueryException $exception): bool
+    {
+        // MySQL 1213 (deadlock) / SQLSTATE 40001 (serialization) / PG 40P01.
+        $sqlState = (string) ($exception->errorInfo[0] ?? $exception->getCode());
+        $driverCode = $exception->errorInfo[1] ?? null;
+
+        return in_array($sqlState, ['40001', '40P01'], true) || $driverCode === 1213;
     }
 
     private function intConfig(string $key, int $default): int

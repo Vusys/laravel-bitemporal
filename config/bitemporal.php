@@ -35,6 +35,7 @@ return [
         'fire_eloquent_events' => false,
         'lock_strategy' => 'parent_row',
         'parent_lock_timeout_ms' => 5000,
+        'advisory_lock_timeout_ms' => 5000,
         'deadlock_retry_attempts' => 1,
         'clock_skew_tolerance_ms' => 60000,
         'idempotency_window' => '7 days',
