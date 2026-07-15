@@ -21,7 +21,7 @@ jobs:
     name: PHP ${{ matrix.php }} · Laravel ${{ matrix.laravel }} · ${{ matrix.db }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Only the database this cell targets is provisioned. Previously all
       # three DB services started on every cell, which tripled the surface
