@@ -57,7 +57,10 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: dom, curl, libxml, mbstring, pdo, pdo_sqlite, pdo_mysql, pdo_pgsql, bcmath
-          coverage: pcov
+          # Coverage on one cell per DB backend (a single PHP/Laravel combo)
+          # so Codecov merges per-flag uploads without redundant runs; every
+          # other cell runs with no coverage driver for speed.
+          coverage: ${{ (matrix.php == '8.4' && matrix.laravel == '12.*') && 'pcov' || 'none' }}
 
       - name: Constrain Laravel version
         run: composer require "laravel/framework:${{ matrix.laravel }}" --no-update --no-interaction --dev
@@ -68,7 +71,7 @@ jobs:
           composer update --prefer-dist --no-interaction --no-progress
 
       - name: Run tests
-        run: vendor/bin/phpunit
+        run: vendor/bin/phpunit ${{ (matrix.php == '8.4' && matrix.laravel == '12.*') && '--coverage-clover=coverage.xml' || '' }}
         env:
           DB_CONNECTION: ${{ matrix.db }}
           DB_HOST: 127.0.0.1
@@ -76,3 +79,12 @@ jobs:
           DB_PORT: ${{ matrix.db == 'pgsql' && '54320' || matrix.db == 'mariadb' && '33307' || '33306' }}
           DB_USERNAME: ${{ matrix.db == 'pgsql' && 'postgres' || 'root' }}
           DB_PASSWORD: ${{ matrix.db == 'pgsql' && 'postgres' || '' }}
+
+      - name: Upload coverage to Codecov
+        if: matrix.php == '8.4' && matrix.laravel == '12.*'
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6
+        with:
+          files: coverage.xml
+          # Tag each backend's upload so Codecov merges them per-flag.
+          flags: ${{ matrix.db }}
+          token: ${{ secrets.CODECOV_TOKEN }}
