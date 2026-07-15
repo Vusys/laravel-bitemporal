@@ -191,7 +191,7 @@ jobs:
 
       - name: Upload compact report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: compact-${{ matrix.db }}-${{ matrix.shard }}
           path: compact-${{ matrix.db }}-${{ matrix.shard }}.json
@@ -247,7 +247,7 @@ jobs:
           cat union-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload union report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: infection-union-${{ github.run_id }}
           path: |
