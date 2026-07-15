@@ -37,3 +37,12 @@ Then reach for the rest as you need it:
 - [Dimensions](06-dimensions.md) · [The as-of lens](07-as-of-lens.md) · [Events](08-events.md)
 - [Configuration](09-configuration.md) · [Exception catalogue](09a-exception-catalogue.md) · [Testing](10-testing.md)
 - [Temporal pivots](11-pivots.md) · [Diffs and timelines](12-diffs-and-timelines.md) · [Boot guards and lints](13-boot-guards-and-lints.md) · [Commands](14-commands.md)
+
+## See it in a real domain
+
+Prefer to learn from a full worked example? Each of these follows one domain end to end — schema, writes, reads, and history — and leans on a different corner of the API:
+
+- [Insurance & claims](15-example-insurance.md) — recorded time and `knownAt`, retroactive endorsements, retractions, and knowledge diffs
+- [Salary history](16-example-salary.md) — `changeEffectiveFrom` vs `correct`, reproducible payroll, optimistic concurrency, and backfilling
+- [SaaS subscriptions](17-example-subscriptions.md) — dimensions, temporal pivots, webhook-safe idempotent writes, and the as-of lens
+- [Tax & regulatory rates](18-example-tax.md) — back-dated legislation, full restatements, and importing historical beliefs

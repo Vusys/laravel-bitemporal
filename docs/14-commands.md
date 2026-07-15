@@ -97,4 +97,4 @@ php artisan bitemporal:prune-idempotency-keys --connection=tenant
 | --- | --- |
 | `--connection=` | the database connection to prune (defaults to the configured one) |
 
-Next: [Exception catalogue](09a-exception-catalogue.md).
+Next: [Worked examples: insurance & claims](15-example-insurance.md).
