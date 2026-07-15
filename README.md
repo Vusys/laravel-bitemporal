@@ -107,9 +107,9 @@ Also readable directly in [`docs/`](docs/README.md):
 
 ## Status
 
-The package is pre-1.0 and built from a detailed internal specification. The read side, the core write side (change / correct / retract / end / supersede / hard-delete), dimensions, the as-of lens, polymorphic entities, backfill, optimistic concurrency, lock strategies, and the migration macros are implemented and green on SQLite — along with the rest of the SQLite-verifiable 1.0 surface: temporal pivots (`BitemporalBelongsToMany`), idempotency keys, the first-party audit-log subscriber, diff and timeline helpers, the testing helpers and factories, boot guards and advisory lints, and the full generator/command set (`make:bitemporal-*`, `bitemporal:audit-*`, `bitemporal:diff-timelines`, `bitemporal:warm-guards`, `bitemporal:prune-idempotency-keys`).
+The package is built from a detailed internal specification and its feature set is complete and green across SQLite, MySQL 8.4, MariaDB, and PostgreSQL 16. The read side, the core write side (change / correct / retract / end / supersede / hard-delete), dimensions, the as-of lens, polymorphic entities, backfill, optimistic concurrency, lock strategies, and the migration macros are implemented — along with temporal pivots (`BitemporalBelongsToMany`), idempotency keys, the first-party audit-log subscriber, diff and timeline helpers, the testing helpers and factories, boot guards and advisory lints, and the full generator/command set (`make:bitemporal-*`, `bitemporal:audit-*`, `bitemporal:diff-timelines`, `bitemporal:warm-guards`, `bitemporal:prune-idempotency-keys`).
 
-Still in progress: the PostgreSQL `EXCLUDE USING gist` / MySQL sentinel database grammars (verified against real engines in CI), the remaining `Schema`-introspection boot guards, streaming backfill, temporal metrics, and the docs-site / release work.
+Enhancements and further hardening are tracked in the [issue tracker](https://github.com/Vusys/laravel-bitemporal/issues?q=is%3Aissue+label%3Aroadmap) under the `roadmap` label.
 
 ## Development
 

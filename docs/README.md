@@ -19,5 +19,3 @@ Start with the concepts, then install, then work through the read and write APIs
 12. [Diffs and timelines](12-diffs-and-timelines.md) — materialising and diffing a timeline
 13. [Boot guards and lints](13-boot-guards-and-lints.md) — configuration validation, warming, suppression
 14. [Commands](14-commands.md) — the Artisan generator and operational commands
-
-For where the package is in its build and what is still planned, see the [implementation status and roadmap](../README.md#status).

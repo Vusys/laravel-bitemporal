@@ -15,7 +15,7 @@ The four questions this unlocks:
 - What was true on this business date? → `validAt($date)`
 - What did we believe was true on that date, *as of some later audit moment*? → `validAt($date)->knownAt($auditMoment)`
 - What do we believe now? → `currentKnowledge()`
-- What changed between two points of knowledge? → diff the two (roadmap item).
+- What changed between two points of knowledge? → diff the two with `diffKnowledge()` / `diffTimelines()`.
 
 ## Spells
 
