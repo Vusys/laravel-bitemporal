@@ -6,6 +6,7 @@ namespace Vusys\Bitemporal;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\ServiceProvider;
@@ -20,6 +21,7 @@ use Vusys\Bitemporal\Console\Commands\PruneIdempotencyKeysCommand;
 use Vusys\Bitemporal\Console\Commands\WarmGuardsCommand;
 use Vusys\Bitemporal\Database\TemporalBlueprintMacros;
 use Vusys\Bitemporal\Lens\AsOfJobListener;
+use Vusys\Bitemporal\Lens\AsOfOctaneListener;
 use Vusys\Bitemporal\Lens\LensStack;
 use Vusys\Bitemporal\Locking\AdvisoryLocker;
 use Vusys\Bitemporal\Locking\ParentRowLocker;
@@ -64,6 +66,14 @@ final class BitemporalServiceProvider extends ServiceProvider
         $events = $this->app->make(Dispatcher::class);
         $events->listen(JobProcessing::class, [AsOfJobListener::class, 'handleProcessing']);
         $events->listen(JobProcessed::class, [AsOfJobListener::class, 'handleProcessed']);
+        $events->listen(JobFailed::class, [AsOfJobListener::class, 'handleFailed']);
+
+        // Octane/FrankenPHP/Swoole request lifecycle. Listened by class-string
+        // name so there is no hard dependency on laravel/octane: the listeners
+        // only ever fire when Octane is installed and dispatches these events.
+        $events->listen('Laravel\Octane\Events\RequestReceived', [AsOfOctaneListener::class, 'handleRequestReceived']);
+        $events->listen('Laravel\Octane\Events\RequestTerminated', [AsOfOctaneListener::class, 'handleRequestTerminated']);
+        $events->listen('Laravel\Octane\Events\WorkerStarting', [AsOfOctaneListener::class, 'handleWorkerStarting']);
 
         if (config('bitemporal.audit_log.enabled', false) === true) {
             $events->subscribe(TemporalAuditLogSubscriber::class);
