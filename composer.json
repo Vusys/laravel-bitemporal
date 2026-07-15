@@ -18,7 +18,7 @@
     },
     "require-dev": {
         "driftingly/rector-laravel": "^2.0",
-        "infection/infection": "^0.29",
+        "infection/infection": "^0.29 || ^0.34",
         "larastan/larastan": "^3.0",
         "laravel/pint": "^1.0",
         "orchestra/testbench": "^9.0|^10.0|^11.0",
