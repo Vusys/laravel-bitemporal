@@ -3,6 +3,12 @@
     "description": "Effective-dated and bitemporal models for Laravel 11+.",
     "type": "library",
     "license": "MIT",
+    "homepage": "https://vusys.github.io/laravel-bitemporal/",
+    "support": {
+        "issues": "https://github.com/Vusys/laravel-bitemporal/issues",
+        "source": "https://github.com/Vusys/laravel-bitemporal",
+        "docs": "https://vusys.github.io/laravel-bitemporal/"
+    },
     "require": {
         "php": "^8.4",
         "illuminate/database": "^11.0|^12.0|^13.0",

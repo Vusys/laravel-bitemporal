@@ -1,6 +1,6 @@
 # Laravel Bitemporal Models
 
-[![Tests](https://github.com/Vusys/laravel-bitemporal/actions/workflows/tests.yml/badge.svg)](https://github.com/Vusys/laravel-bitemporal/actions/workflows/tests.yml) [![codecov](https://codecov.io/gh/Vusys/laravel-bitemporal/graph/badge.svg)](https://codecov.io/gh/Vusys/laravel-bitemporal) [![Mutation testing](https://img.shields.io/endpoint?style=flat&url=https://badge-api.stryker-mutator.io/github.com/Vusys/laravel-bitemporal/master)](https://dashboard.stryker-mutator.io/reports/github.com/Vusys/laravel-bitemporal/master) [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Vusys/laravel-bitemporal/badge)](https://scorecard.dev/viewer/?uri=github.com/Vusys/laravel-bitemporal) [![PHP](https://img.shields.io/badge/php-%5E8.4-777BB4?logo=php&logoColor=white)](composer.json) [![Laravel](https://img.shields.io/badge/laravel-11%20%7C%2012%20%7C%2013-FF2D20?logo=laravel)](composer.json) [![PHPStan](https://img.shields.io/badge/PHPStan-level%209-brightgreen.svg)](phpstan.neon) [![Rector](https://img.shields.io/badge/Rector-passing-brightgreen.svg)](rector.php) [![Code Style: Pint](https://img.shields.io/badge/code%20style-Laravel%20Pint-FF2D20.svg?logo=laravel)](https://github.com/laravel/pint) [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Tests](https://github.com/Vusys/laravel-bitemporal/actions/workflows/tests.yml/badge.svg)](https://github.com/Vusys/laravel-bitemporal/actions/workflows/tests.yml) [![Docs](https://github.com/Vusys/laravel-bitemporal/actions/workflows/docs.yml/badge.svg)](https://vusys.github.io/laravel-bitemporal/) [![codecov](https://codecov.io/gh/Vusys/laravel-bitemporal/graph/badge.svg)](https://codecov.io/gh/Vusys/laravel-bitemporal) [![Mutation testing](https://img.shields.io/endpoint?style=flat&url=https://badge-api.stryker-mutator.io/github.com/Vusys/laravel-bitemporal/master)](https://dashboard.stryker-mutator.io/reports/github.com/Vusys/laravel-bitemporal/master) [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Vusys/laravel-bitemporal/badge)](https://scorecard.dev/viewer/?uri=github.com/Vusys/laravel-bitemporal) [![PHP](https://img.shields.io/badge/php-%5E8.4-777BB4?logo=php&logoColor=white)](composer.json) [![Laravel](https://img.shields.io/badge/laravel-11%20%7C%2012%20%7C%2013-FF2D20?logo=laravel)](composer.json) [![PHPStan](https://img.shields.io/badge/PHPStan-level%209-brightgreen.svg)](phpstan.neon) [![Rector](https://img.shields.io/badge/Rector-passing-brightgreen.svg)](rector.php) [![Code Style: Pint](https://img.shields.io/badge/code%20style-Laravel%20Pint-FF2D20.svg?logo=laravel)](https://github.com/laravel/pint) [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Safe effective-dated and bitemporal relations for Laravel.
 
@@ -90,7 +90,9 @@ $product->prices()->retract(validFrom: '2026-02-01', validTo: '2026-03-01');
 
 ## Documentation
 
-Full user guide in [`docs/`](docs/README.md):
+📚 **Full documentation: [vusys.github.io/laravel-bitemporal](https://vusys.github.io/laravel-bitemporal/)**
+
+Also readable directly in [`docs/`](docs/README.md):
 
 - [Concepts](docs/01-concepts.md) · [Installation](docs/02-installation.md) · [Defining models](docs/03-defining-models.md)
 - [Reading](docs/04-reading.md) · [Writing](docs/05-writing.md) · [Dimensions](docs/06-dimensions.md)
