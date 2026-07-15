@@ -94,3 +94,8 @@ nav:
   - Diffs and timelines: 12-diffs-and-timelines.md
   - Boot guards and lints: 13-boot-guards-and-lints.md
   - Commands: 14-commands.md
+  - Worked examples:
+      - Insurance & claims: 15-example-insurance.md
+      - Salary history: 16-example-salary.md
+      - Subscriptions: 17-example-subscriptions.md
+      - Tax & regulatory: 18-example-tax.md
