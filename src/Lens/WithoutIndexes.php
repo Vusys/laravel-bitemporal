@@ -96,9 +96,4 @@ final class WithoutIndexes
             }
         }
     }
-
-    public function isActive(string $key): bool
-    {
-        return isset($this->active[$key]);
-    }
 }
