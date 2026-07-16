@@ -6,13 +6,16 @@ namespace Vusys\Bitemporal\Tests\Integration\Writes;
 
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Vusys\Bitemporal\Database\Grammar\IndexRegistry;
+use Vusys\Bitemporal\Exceptions\TemporalInvalidSpellException;
 use Vusys\Bitemporal\Exceptions\TemporalOnlineDdlException;
 use Vusys\Bitemporal\Facades\TemporalLens;
 use Vusys\Bitemporal\Tests\Fixtures\Models\IndexedPrice;
 use Vusys\Bitemporal\Tests\Fixtures\Models\IndexedPriceTwo;
+use Vusys\Bitemporal\Tests\Fixtures\Models\Product;
 use Vusys\Bitemporal\Tests\Fixtures\Models\ProductPrice;
 use Vusys\Bitemporal\Tests\Fixtures\Models\RangeIndexedPrice;
 use Vusys\Bitemporal\Tests\Integration\IntegrationTestCase;
@@ -170,6 +173,44 @@ final class WithoutIndexesTest extends IntegrationTestCase
         DB::transaction(function (): void {
             TemporalLens::withoutIndexes(IndexedPrice::class, fn (): null => null);
         });
+    }
+
+    public function test_rejects_a_non_temporal_model(): void
+    {
+        $this->expectException(TemporalInvalidSpellException::class);
+
+        TemporalLens::withoutIndexes(Product::class, fn (): null => null);
+    }
+
+    public function test_sqlite_recreation_emits_a_full_lock_warning(): void
+    {
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            $this->markTestSkipped('The full-table-lock warning is SQLite-specific.');
+        }
+
+        config(['bitemporal.backfill.suppress_sqlite_warning' => false]);
+        $spy = Log::spy();
+
+        TemporalLens::withoutIndexes(IndexedPrice::class, fn (): null => null);
+
+        $spy->shouldHaveReceived('warning');
+    }
+
+    public function test_sqlite_introspection_skips_non_created_indexes(): void
+    {
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            $this->markTestSkipped('SQLite auto-index origins are engine-specific.');
+        }
+
+        // The inline UNIQUE constraint makes SQLite emit an auto-index whose
+        // origin is not 'c' — introspection must skip it, not treat it as ours.
+        DB::statement('create table origin_probe (id integer primary key, sku text unique)');
+
+        $found = resolve(IndexRegistry::class)->existing(DB::connection(), 'origin_probe');
+
+        $this->assertSame([], $found);
+
+        Schema::drop('origin_probe');
     }
 
     public function test_recreation_runs_even_when_callback_throws(): void
