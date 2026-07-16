@@ -33,6 +33,16 @@ return [
         'default_chunk_size' => 1000,
         // Run the scoped overlap audit after a streaming import completes.
         'post_audit_check' => true,
+
+        // withoutIndexes(): recreate package overlap indexes with the engine's
+        // online path — CREATE INDEX CONCURRENTLY (PostgreSQL) or
+        // ALGORITHM=INPLACE, LOCK=NONE (MySQL/MariaDB). Set false to fall back
+        // to a blocking rebuild on engine versions that reject the online path.
+        'online_ddl' => true,
+
+        // Silence the withoutIndexes() warning that SQLite rebuilds indexes with
+        // a full table lock. Intended for the test suite.
+        'suppress_sqlite_warning' => false,
     ],
 
     'database' => [
