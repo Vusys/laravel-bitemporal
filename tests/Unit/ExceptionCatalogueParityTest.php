@@ -26,15 +26,15 @@ use Vusys\Bitemporal\Exceptions\TemporalException;
  */
 final class ExceptionCatalogueParityTest extends TestCase
 {
-    private const SRC_DIR = __DIR__.'/../../src';
+    private const string SRC_DIR = __DIR__.'/../../src';
 
-    private const EXCEPTIONS_DIR = self::SRC_DIR.'/Exceptions';
+    private const string EXCEPTIONS_DIR = self::SRC_DIR.'/Exceptions';
 
-    private const EXCEPTIONS_NAMESPACE = 'Vusys\\Bitemporal\\Exceptions\\';
+    private const string EXCEPTIONS_NAMESPACE = 'Vusys\\Bitemporal\\Exceptions\\';
 
-    private const DOC = __DIR__.'/../../docs/09a-exception-catalogue.md';
+    private const string DOC = __DIR__.'/../../docs/09a-exception-catalogue.md';
 
-    private const LANG = __DIR__.'/../../lang/en/messages.php';
+    private const string LANG = __DIR__.'/../../lang/en/messages.php';
 
     /**
      * Factory methods deliberately defined ahead of their throw sites. Each entry
@@ -44,7 +44,7 @@ final class ExceptionCatalogueParityTest extends TestCase
      *
      * @var array<string, string>
      */
-    private const RESERVED_FACTORIES = [
+    private const array RESERVED_FACTORIES = [
         'TemporalDomainException::invariant' => 'defensive "should never happen" assertion; kept ready for algorithm invariants even when no site currently trips it',
         'TemporalWriteConflictException::clockRegressed' => 'reserved for the clock-regression write guard',
         'TemporalUnsupportedDatabaseException::advisoryLocksUnsupported' => 'wired by #16/#17 (engine grammars + advisory-lock fallback)',
@@ -58,7 +58,7 @@ final class ExceptionCatalogueParityTest extends TestCase
      *
      * @var array<string, string>
      */
-    private const LANG_SECTIONS = [
+    private const array LANG_SECTIONS = [
         'TemporalConfigurationException' => 'configuration',
         'TemporalInvalidSpellException' => 'invalid_period',
         'TemporalMissingDimensionException' => 'missing_dimension',
@@ -111,16 +111,18 @@ final class ExceptionCatalogueParityTest extends TestCase
      * @param  class-string  $class
      * @return list<string>
      */
-    private static function factoryMethods(string $class): array
+    private function factoryMethods(string $class): array
     {
         $ref = new ReflectionClass($class);
         $factories = [];
 
         foreach ($ref->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
-            if (! $method->isStatic() || $method->getDeclaringClass()->getName() !== $class) {
+            if (! $method->isStatic()) {
                 continue;
             }
-
+            if ($method->getDeclaringClass()->getName() !== $class) {
+                continue;
+            }
             $type = $method->getReturnType();
             $typeName = $type instanceof ReflectionNamedType ? $type->getName() : null;
 
@@ -137,7 +139,7 @@ final class ExceptionCatalogueParityTest extends TestCase
     /**
      * Concatenated contents of every PHP file under src/ (throw-site scan target).
      */
-    private static function srcBlob(): string
+    private function srcBlob(): string
     {
         static $blob = null;
 
@@ -151,7 +153,7 @@ final class ExceptionCatalogueParityTest extends TestCase
         /** @var SplFileInfo $file */
         foreach ($it as $file) {
             if ($file->isFile() && $file->getExtension() === 'php') {
-                $blob .= (string) file_get_contents($file->getPathname())."\n";
+                $blob .= file_get_contents($file->getPathname())."\n";
             }
         }
 
@@ -197,7 +199,7 @@ final class ExceptionCatalogueParityTest extends TestCase
         );
 
         $this->assertNotEmpty(
-            self::factoryMethods($class),
+            $this->factoryMethods($class),
             "{$class} must declare at least one public static factory method",
         );
     }
@@ -208,7 +210,7 @@ final class ExceptionCatalogueParityTest extends TestCase
     #[DataProvider('discoveredClasses')]
     public function test_every_exception_class_has_a_lang_section(string $class): void
     {
-        $short = (new ReflectionClass($class))->getShortName();
+        $short = new ReflectionClass($class)->getShortName();
 
         $this->assertArrayHasKey(
             $short,
@@ -229,13 +231,13 @@ final class ExceptionCatalogueParityTest extends TestCase
 
     public function test_every_factory_is_thrown_somewhere_or_reserved(): void
     {
-        $blob = self::srcBlob();
+        $blob = $this->srcBlob();
         $unused = [];
 
         foreach (self::discoverExceptionClasses() as $class) {
-            $short = (new ReflectionClass($class))->getShortName();
+            $short = new ReflectionClass($class)->getShortName();
 
-            foreach (self::factoryMethods($class) as $method) {
+            foreach ($this->factoryMethods($class) as $method) {
                 $key = "{$short}::{$method}";
 
                 if (str_contains($blob, "{$short}::{$method}(")) {
@@ -257,15 +259,15 @@ final class ExceptionCatalogueParityTest extends TestCase
 
     public function test_reserved_factory_list_has_no_stale_entries(): void
     {
-        $blob = self::srcBlob();
+        $blob = $this->srcBlob();
         $stale = [];
 
-        foreach (self::RESERVED_FACTORIES as $key => $_reason) {
+        foreach (array_keys(self::RESERVED_FACTORIES) as $key) {
             [$short, $method] = explode('::', $key);
             /** @var class-string $class */
             $class = self::EXCEPTIONS_NAMESPACE.$short;
 
-            if (! class_exists($class) || ! in_array($method, self::factoryMethods($class), true)) {
+            if (! class_exists($class) || ! in_array($method, $this->factoryMethods($class), true)) {
                 $stale[] = "{$key} (no such factory)";
 
                 continue;
@@ -281,9 +283,9 @@ final class ExceptionCatalogueParityTest extends TestCase
 
     public function test_raw_throws_only_use_catalogued_exception_classes(): void
     {
-        $blob = self::srcBlob();
+        $blob = $this->srcBlob();
         $known = array_map(
-            static fn (string $c): string => (new ReflectionClass($c))->getShortName(),
+            static fn (string $c): string => new ReflectionClass($c)->getShortName(),
             self::discoverExceptionClasses(),
         );
 
@@ -305,10 +307,10 @@ final class ExceptionCatalogueParityTest extends TestCase
         $doc = (string) file_get_contents(self::DOC);
 
         foreach (self::discoverExceptionClasses() as $class) {
-            $short = (new ReflectionClass($class))->getShortName();
+            $short = new ReflectionClass($class)->getShortName();
             $this->assertStringContainsString($short, $doc, "{$short} is missing from docs/09a-exception-catalogue.md");
 
-            foreach (self::factoryMethods($class) as $method) {
+            foreach ($this->factoryMethods($class) as $method) {
                 $this->assertStringContainsString(
                     $method,
                     $doc,

@@ -172,7 +172,7 @@ final readonly class BitemporalBackfill
 
         // Final aggregate event only after the audit passes.
         $committed = new TemporalBackfillCommitted(
-            $this->related::class, $this->entity, $this->dimensions, $allInserted, null,
+            $this->related::class, $this->entity, $this->dimensions, $allInserted,
         );
         $this->events->dispatch($committed);
 

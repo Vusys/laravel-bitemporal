@@ -26,20 +26,20 @@ use Vusys\Bitemporal\Tests\TestCase;
  */
 final class OctaneLifecycleTest extends TestCase
 {
-    private const REQUEST_RECEIVED = 'Laravel\Octane\Events\RequestReceived';
+    private const string REQUEST_RECEIVED = 'Laravel\Octane\Events\RequestReceived';
 
-    private const REQUEST_TERMINATED = 'Laravel\Octane\Events\RequestTerminated';
+    private const string REQUEST_TERMINATED = 'Laravel\Octane\Events\RequestTerminated';
 
-    private const WORKER_STARTING = 'Laravel\Octane\Events\WorkerStarting';
+    private const string WORKER_STARTING = 'Laravel\Octane\Events\WorkerStarting';
 
     private function stack(): LensStack
     {
-        return app(LensStack::class);
+        return resolve(LensStack::class);
     }
 
     private function dispatcher(): Dispatcher
     {
-        return app(Dispatcher::class);
+        return resolve(Dispatcher::class);
     }
 
     /** Simulate a worker killed mid-callback: a frame left on the stack. */

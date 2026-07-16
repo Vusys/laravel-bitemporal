@@ -44,7 +44,7 @@ final class BootGuardConnection implements BootGuard
         // model here would re-enter the boot guards and can recurse.
         $relatedClass = $relation->getRelated()::class;
         $modelConnection = $model->getConnectionName();
-        $entityConnection = (new ReflectionClass($relatedClass))->getDefaultProperties()['connection'] ?? null;
+        $entityConnection = new ReflectionClass($relatedClass)->getDefaultProperties()['connection'] ?? null;
         $entityConnection = is_string($entityConnection) ? $entityConnection : null;
 
         if ($modelConnection === $entityConnection) {

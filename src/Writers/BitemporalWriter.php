@@ -848,7 +848,7 @@ final readonly class BitemporalWriter
 
     private function metrics(): TemporalMetrics
     {
-        return app(TemporalMetrics::class);
+        return resolve(TemporalMetrics::class);
     }
 
     /**

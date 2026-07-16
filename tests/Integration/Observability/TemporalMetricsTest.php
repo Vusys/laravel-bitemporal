@@ -21,7 +21,7 @@ final class TemporalMetricsTest extends IntegrationTestCase
 
     public function test_null_metrics_is_bound_by_default(): void
     {
-        $this->assertInstanceOf(NullMetrics::class, app(TemporalMetrics::class));
+        $this->assertInstanceOf(NullMetrics::class, resolve(TemporalMetrics::class));
     }
 
     public function test_a_bound_spy_receives_write_metrics(): void
@@ -79,6 +79,6 @@ final class TemporalMetricsTest extends IntegrationTestCase
         $product = $this->makeProduct();
         $product->prices()->correct(['amount' => 1200], validFrom: '2026-01-01');
 
-        $this->assertInstanceOf(NullMetrics::class, app(TemporalMetrics::class));
+        $this->assertInstanceOf(NullMetrics::class, resolve(TemporalMetrics::class));
     }
 }

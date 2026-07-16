@@ -19,10 +19,10 @@ use Vusys\Bitemporal\Tests\Fixtures\Models\Product;
 final class AdvisoryLockTimeoutTest extends ConcurrencyTestCase
 {
     // GET_LOCK is second-granular, so the shortest honest MySQL wait is 1s.
-    private const WAITER_TIMEOUT_MS = 1000;
+    private const int WAITER_TIMEOUT_MS = 1000;
 
     // Lower bound proving the waiter actually blocked rather than failing fast.
-    private const MIN_WAIT_MS = 400;
+    private const int MIN_WAIT_MS = 400;
 
     public function test_second_writer_times_out_while_first_holds_the_advisory_lock(): void
     {
@@ -91,7 +91,7 @@ final class AdvisoryLockTimeoutTest extends ConcurrencyTestCase
 
         $captured = [];
         DB::connection()->listen(function ($query) use (&$captured): void {
-            if (str_contains($query->sql, 'GET_LOCK')) {
+            if (str_contains((string) $query->sql, 'GET_LOCK')) {
                 $captured[] = $query->bindings;
             }
         });
