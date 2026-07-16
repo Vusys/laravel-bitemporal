@@ -29,7 +29,7 @@ final readonly class TemporalMetricsSubscriber
     /**
      * @var array<class-string, string>
      */
-    private const OPERATIONS = [
+    private const array OPERATIONS = [
         TemporalChangeCommitted::class => 'change',
         TemporalCorrectionCommitted::class => 'correct',
         TemporalRetractionCommitted::class => 'retract',

@@ -13,7 +13,7 @@ use Vusys\Bitemporal\Boot\AppGuard;
  */
 final class AppGuardLockStrategy implements AppGuard
 {
-    private const KNOWN = ['parent_row', 'advisory', 'custom'];
+    private const array KNOWN = ['parent_row', 'advisory', 'custom'];
 
     public function check(): ?string
     {

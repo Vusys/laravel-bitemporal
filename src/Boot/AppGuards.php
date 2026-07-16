@@ -43,7 +43,7 @@ final readonly class AppGuards
             $message = $guard->check();
 
             if ($message !== null) {
-                $failures[(new ReflectionClass($guard))->getShortName()] = $message;
+                $failures[new ReflectionClass($guard)->getShortName()] = $message;
             }
         }
 

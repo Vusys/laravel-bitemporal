@@ -17,7 +17,7 @@ use Vusys\Bitemporal\Tests\Integration\IntegrationTestCase;
  */
 final class PostgresRangeExclusionTest extends IntegrationTestCase
 {
-    private const TABLE = 'range_price_versions';
+    private const string TABLE = 'range_price_versions';
 
     protected function setUp(): void
     {

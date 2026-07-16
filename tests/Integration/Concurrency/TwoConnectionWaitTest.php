@@ -29,7 +29,7 @@ final class TwoConnectionWaitTest extends ConcurrencyTestCase
     // Lower bound proving the waiter blocked rather than failing instantly. The
     // engine waits are ~1s (MySQL innodb_lock_wait_timeout / GET_LOCK second
     // granularity / PG lock_timeout), so 700ms leaves generous slack.
-    private const MIN_WAIT_MS = 700;
+    private const int MIN_WAIT_MS = 700;
 
     public function test_parent_row_lock_serialises_a_second_writer(): void
     {
@@ -111,7 +111,7 @@ final class TwoConnectionWaitTest extends ConcurrencyTestCase
         // AppGuardLockerBinding); runs on every engine.
         config(['bitemporal.writes.lock_strategy' => 'advisory']);
 
-        $this->assertInstanceOf(WriteLocker::class, app(WriteLocker::class));
+        $this->assertInstanceOf(WriteLocker::class, resolve(WriteLocker::class));
     }
 
     /**

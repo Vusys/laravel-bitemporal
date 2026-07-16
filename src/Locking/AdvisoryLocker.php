@@ -28,7 +28,7 @@ final class AdvisoryLocker implements WriteLocker
      * PostgreSQL SQLSTATE raised when a statement is cancelled because it waited
      * longer than lock_timeout.
      */
-    private const PG_LOCK_TIMEOUT = '55P03';
+    private const string PG_LOCK_TIMEOUT = '55P03';
 
     public function lockFor(Model $entity, array $dimensions, int $timeoutMs = 5000): WriteLockHandle
     {
