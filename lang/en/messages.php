@@ -15,6 +15,7 @@ return [
         'relation_type' => 'temporalEntity() on :model must return BelongsTo or MorphTo; found :type.',
         'missing_temporal_entity' => 'temporal model :model must define a temporalEntity() relation',
         'disabled_pivot_method' => ':method() is disabled on a temporal pivot relation because it would destroy history; use :useInstead instead',
+        'app_guard_failures' => 'bitemporal application configuration is invalid: :failures',
     ],
 
     'invalid_period' => [
@@ -43,6 +44,8 @@ return [
 
     'write_conflict' => [
         'lock_timeout' => 'Lock timeout acquiring temporal write lock for :entity (timeout :ms ms).',
+        'deadlock' => 'Deadlock acquiring temporal write lock for :entity; deadlock-retry budget exhausted.',
+        'connection_changed' => 'Database connection swapped mid-write for :entity; advisory lock can no longer be trusted.',
         'entity_missing' => 'Cannot lock temporal entity :model#:id: row not found.',
         'expectation_failed' => "optimistic check failed: the current value of ':column' is not what was expected; another write got there first",
         'idempotency_conflict' => "idempotency key ':key' was already used with different parameters",

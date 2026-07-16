@@ -22,6 +22,31 @@ return [
         'enabled' => true,
     ],
 
+    'observability' => [
+        // Opt in by binding a TemporalMetrics implementation; NullMetrics (a
+        // no-op) is bound by default, so nothing is emitted until you do.
+        'metrics_enabled' => false,
+    ],
+
+    'backfill' => [
+        // Rows per chunk for the streaming backfill path (stream()).
+        'default_chunk_size' => 1000,
+        // Run the scoped overlap audit after a streaming import completes.
+        'post_audit_check' => true,
+    ],
+
+    'database' => [
+        // Opt in to PostgreSQL native range columns (tstzrange) + a
+        // database-enforced EXCLUDE USING gist overlap constraint. PG only;
+        // the composite-index path stays the default everywhere else.
+        'prefer_native_ranges' => false,
+
+        // Whether the EnableBitemporalExtensions migration may run
+        // CREATE EXTENSION IF NOT EXISTS btree_gist. Set false on locked-down
+        // hosts and install the extension out of band.
+        'create_postgres_extensions' => true,
+    ],
+
     'audit_log' => [
         'enabled' => false,
         'table' => 'temporal_audit_log',
@@ -35,6 +60,7 @@ return [
         'fire_eloquent_events' => false,
         'lock_strategy' => 'parent_row',
         'parent_lock_timeout_ms' => 5000,
+        'advisory_lock_timeout_ms' => 5000,
         'deadlock_retry_attempts' => 1,
         'clock_skew_tolerance_ms' => 60000,
         'idempotency_window' => '7 days',

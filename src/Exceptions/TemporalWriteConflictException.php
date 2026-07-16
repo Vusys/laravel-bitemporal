@@ -18,6 +18,21 @@ final class TemporalWriteConflictException extends TemporalException
         return new self("the host clock appears to have regressed for {$tuple}; refusing to write");
     }
 
+    public static function lockTimeout(string $entity, int $timeoutMs): self
+    {
+        return new self("timed out after {$timeoutMs}ms acquiring the temporal write lock for {$entity}; another write holds it");
+    }
+
+    public static function deadlock(string $entity): self
+    {
+        return new self("deadlock detected acquiring the temporal write lock for {$entity}; the deadlock-retry budget is exhausted");
+    }
+
+    public static function connectionChanged(string $entity): self
+    {
+        return new self("the database connection was swapped mid-write for {$entity}; the advisory lock can no longer be trusted");
+    }
+
     public static function expectationFailed(string $column): self
     {
         return new self("optimistic check failed: the current value of '{$column}' is not what was expected; another write got there first");

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Vusys\Bitemporal\Events\TemporalBackfillCommitted;
 use Vusys\Bitemporal\Events\TemporalBackfillStarting;
 use Vusys\Bitemporal\Exceptions\TemporalInvalidSpellException;
+use Vusys\Bitemporal\Exceptions\TemporalOverlapException;
 use Vusys\Bitemporal\Locking\WriteLocker;
 use Vusys\Bitemporal\Spell;
 use Vusys\Bitemporal\Support\EntityScope;
@@ -41,6 +42,7 @@ final readonly class BitemporalBackfill
         private array $dimensions,
         private WriteLocker $locker,
         private Dispatcher $events,
+        private ?int $chunkSize = null,
     ) {
         if (! method_exists($related, 'temporalMetadata')) {
             throw new TemporalInvalidSpellException($related::class.' is not a temporal model');
@@ -51,10 +53,33 @@ final readonly class BitemporalBackfill
     }
 
     /**
+     * Switch to the streaming path: rows are validated and inserted a chunk at a
+     * time in their own transactions, keeping wall-memory bounded for large
+     * historical loads. Chunks are not cross-validated during the stream, so a
+     * post-import overlap audit (scoped to this entity) guards cross-chunk
+     * overlaps.
+     */
+    public function stream(?int $chunkSize = null): self
+    {
+        return new self(
+            $this->related,
+            $this->entity,
+            $this->dimensions,
+            $this->locker,
+            $this->events,
+            max(1, $chunkSize ?? $this->configuredChunkSize()),
+        );
+    }
+
+    /**
      * @param  iterable<int, array<string, mixed>>  $rows
      */
     public function timeline(iterable $rows): TemporalBackfillCommitted
     {
+        if ($this->chunkSize !== null) {
+            return $this->insertStreaming($rows);
+        }
+
         $segments = [];
         foreach ($rows as $row) {
             $segments[] = $this->toSegment($row);
@@ -109,6 +134,130 @@ final readonly class BitemporalBackfill
         $this->events->dispatch($committed);
 
         return $committed;
+    }
+
+    /**
+     * Stream rows in bounded-memory chunks. Each chunk is internally validated,
+     * inserted in its own locked transaction, and announced with its chunkIndex;
+     * routine writes may interleave between chunks. After the last chunk a scoped
+     * overlap audit runs, and only on success does the final aggregate event
+     * (chunkIndex = null) fire.
+     *
+     * @param  iterable<int, array<string, mixed>>  $rows
+     */
+    private function insertStreaming(iterable $rows): TemporalBackfillCommitted
+    {
+        $now = CarbonImmutable::now($this->timezone());
+        $chunkIndex = 0;
+        $allInserted = [];
+        $buffer = [];
+
+        foreach ($rows as $row) {
+            $buffer[] = $this->toSegment($row);
+
+            if (count($buffer) >= (int) $this->chunkSize) {
+                $allInserted = [...$allInserted, ...$this->flushChunk($buffer, $chunkIndex, $now)];
+                $chunkIndex++;
+                $buffer = [];
+            }
+        }
+
+        if ($buffer !== []) {
+            $allInserted = [...$allInserted, ...$this->flushChunk($buffer, $chunkIndex, $now)];
+        }
+
+        if ($this->postAuditEnabled()) {
+            $this->auditScopedOverlaps($allInserted);
+        }
+
+        // Final aggregate event only after the audit passes.
+        $committed = new TemporalBackfillCommitted(
+            $this->related::class, $this->entity, $this->dimensions, $allInserted,
+        );
+        $this->events->dispatch($committed);
+
+        return $committed;
+    }
+
+    /**
+     * Validate a chunk for internal overlap and insert it in its own locked
+     * transaction, returning the inserted rows and firing a per-chunk event.
+     *
+     * @param  array<int, TimelineSegment>  $segments
+     * @return array<int, Model>
+     */
+    private function flushChunk(array $segments, int $chunkIndex, CarbonImmutable $now): array
+    {
+        (new BackfillValidator)->validate($segments, $now);
+
+        $rowsInserted = $this->connection()->transaction(function () use ($segments): array {
+            $this->locker->lockFor($this->entity, $this->dimensions);
+
+            $inserted = [];
+            foreach ($segments as $segment) {
+                $row = $this->buildRow($segment);
+                $row->saveQuietly();
+                $inserted[] = $row;
+            }
+
+            return $inserted;
+        });
+
+        $this->events->dispatch(new TemporalBackfillCommitted(
+            $this->related::class, $this->entity, $this->dimensions, $rowsInserted, $chunkIndex,
+        ));
+
+        return $rowsInserted;
+    }
+
+    /**
+     * Scoped overlap audit over the current-known rows of this entity/dimension
+     * tuple — the same guarantee bitemporal:audit-overlaps enforces, at a cost
+     * proportional to the import rather than the whole table. On failure the
+     * inserted primary keys ride along so the caller can recover.
+     *
+     * @param  array<int, Model>  $inserted
+     */
+    private function auditScopedOverlaps(array $inserted): void
+    {
+        $query = $this->related->newQuery();
+
+        foreach ([...$this->entityScope, ...$this->dimensions] as $column => $value) {
+            $query->where($column, $value);
+        }
+
+        $rows = $query->whereNull($this->meta->recordedTo)->get()->all();
+
+        $spells = [];
+        foreach ($rows as $row) {
+            $spells[] = new Spell(
+                $this->date($row->getAttribute($this->meta->validFrom)),
+                $this->date($row->getAttribute($this->meta->validTo)),
+            );
+        }
+
+        $count = count($spells);
+        for ($i = 0; $i < $count; $i++) {
+            for ($j = $i + 1; $j < $count; $j++) {
+                if ($spells[$i]->intersects($spells[$j])) {
+                    throw TemporalOverlapException::afterBackfillAudit(
+                        array_map(static fn (Model $row): mixed => $row->getKey(), $inserted),
+                    );
+                }
+            }
+        }
+    }
+
+    private function configuredChunkSize(): int
+    {
+        $value = config('bitemporal.backfill.default_chunk_size', 1000);
+
+        return is_int($value) && $value > 0 ? $value : 1000;
+    }
+
+    private function postAuditEnabled(): bool
+    {
+        return config('bitemporal.backfill.post_audit_check', true) === true;
     }
 
     /**

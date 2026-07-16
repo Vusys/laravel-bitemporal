@@ -43,6 +43,23 @@ The concurrency surface. `expectation_failed` is the optimistic-concurrency chec
 
 The only exception that is **not** a caller error. It signals a "should never happen" invariant breach inside the algorithm (`invariant(...)`), or a clock that has gone backwards beyond `writes.clock_skew_tolerance_ms` (`clockSkew(...)`). Treat it as a bug report — capture the message and reproduction.
 
+## Factory methods
+
+Every subclass is `final`, has no public constructor, and is built through named static
+factory methods — the factory name plus the message encode the scenario (there is no numeric
+`code`). The full set, verified in sync with the code by `ExceptionCatalogueParityTest`:
+
+| Exception | Factory methods |
+| --- | --- |
+| `TemporalConfigurationException` | `missingTemporalEntity`, `unexpectedEntityArgument`, `disabledPivotMethod`, `guardFailures`, `appGuardFailures` |
+| `TemporalInvalidSpellException` | `fromAfterTo`, `zeroLength`, `mergeDisjoint`, `antiRowCorrection`, `emptyTimelineSpan`, `unparseableDate` |
+| `TemporalMissingDimensionException` | `pendingWhere`, `forbiddenAttribute`, `incomplete`, `unknownDimension`, `conflict` |
+| `TemporalOverlapException` | `betweenSegments`, `afterBackfillAudit` |
+| `TemporalCardinalityException` | `expectedOneFoundMany`, `expectedOneFoundNone`, `noAssignmentToCorrect`, `noAssignmentToDetach` |
+| `TemporalWriteConflictException` | `entityMissing`, `clockRegressed`, `lockTimeout`, `deadlock`, `connectionChanged`, `expectationFailed`, `idempotencyKeyReused` |
+| `TemporalUnsupportedDatabaseException` | `btreeGistMissing`, `advisoryLocksUnsupported`, `engineVersionBelowMinimum` |
+| `TemporalDomainException` | `invariant`, `clockSkew` |
+
 ## Asserting on exceptions in tests
 
 The testing trait wraps the common cases so you don't hand-roll `expectException` plus a message match — see [Testing](10-testing.md#timeline-assertions):
