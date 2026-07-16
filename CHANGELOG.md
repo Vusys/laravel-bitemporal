@@ -5,6 +5,25 @@ All notable changes to `vusys/laravel-bitemporal` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-07-16
+
+Engine hardening.
+
+### Added
+- PostgreSQL premium path: `tstzrange` + `EXCLUDE USING gist`.
+- Boot guards: introspection guards, app guards, and an advisory lint channel.
+- `TemporalMetrics` observability interface.
+- Streaming backfill (chunked import + scoped post-audit).
+- Advisory-lock verification.
+
+### Changed
+- Full exception-catalogue parity scan.
+- Typed class constants and `resolve()` helper (Rector).
+
+### Tested
+- Two-connection concurrency tests on real engines.
+- Octane / FrankenPHP / Swoole lens-lifecycle coverage.
+
 ## [0.3.0] - 2026-07-15
 
 Documentation site and project infrastructure.
