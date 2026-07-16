@@ -54,7 +54,7 @@ factory methods — the factory name plus the message encode the scenario (there
 | `TemporalConfigurationException` | `missingTemporalEntity`, `unexpectedEntityArgument`, `disabledPivotMethod`, `guardFailures`, `appGuardFailures` |
 | `TemporalInvalidSpellException` | `fromAfterTo`, `zeroLength`, `mergeDisjoint`, `antiRowCorrection`, `emptyTimelineSpan`, `unparseableDate` |
 | `TemporalMissingDimensionException` | `pendingWhere`, `forbiddenAttribute`, `incomplete`, `unknownDimension`, `conflict` |
-| `TemporalOverlapException` | `betweenSegments` |
+| `TemporalOverlapException` | `betweenSegments`, `afterBackfillAudit` |
 | `TemporalCardinalityException` | `expectedOneFoundMany`, `expectedOneFoundNone`, `noAssignmentToCorrect`, `noAssignmentToDetach` |
 | `TemporalWriteConflictException` | `entityMissing`, `clockRegressed`, `lockTimeout`, `deadlock`, `connectionChanged`, `expectationFailed`, `idempotencyKeyReused` |
 | `TemporalUnsupportedDatabaseException` | `btreeGistMissing`, `advisoryLocksUnsupported`, `engineVersionBelowMinimum` |

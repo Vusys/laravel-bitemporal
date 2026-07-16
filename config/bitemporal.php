@@ -28,6 +28,13 @@ return [
         'metrics_enabled' => false,
     ],
 
+    'backfill' => [
+        // Rows per chunk for the streaming backfill path (stream()).
+        'default_chunk_size' => 1000,
+        // Run the scoped overlap audit after a streaming import completes.
+        'post_audit_check' => true,
+    ],
+
     'database' => [
         // Opt in to PostgreSQL native range columns (tstzrange) + a
         // database-enforced EXCLUDE USING gist overlap constraint. PG only;
