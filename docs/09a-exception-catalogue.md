@@ -42,7 +42,7 @@ The concurrency surface. `expectation_failed` is the optimistic-concurrency chec
 
 ### `TemporalOnlineDdlException`
 
-Raised by `TemporalLens::withoutIndexes()` (the bulk-load index helper). `insideTransaction` fires when it is called inside an open transaction (PostgreSQL `CREATE INDEX CONCURRENTLY` forbids a transaction block, and dropping indexes mid-transaction is unsafe) — call it outside any transaction; the callback may open its own. `recreateFailed` fires when a dropped package index cannot be recreated on exit, naming the index and the DDL; on PostgreSQL a failed `CREATE INDEX CONCURRENTLY` may leave an INVALID index to drop manually.
+Raised by [`TemporalLens::withoutIndexes()`](05-writing.md#dropping-indexes-for-a-bulk-load). `insideTransaction` fires when it is called inside an open transaction (PostgreSQL `CREATE INDEX CONCURRENTLY` forbids a transaction block, and dropping indexes mid-transaction is unsafe) — call it outside any transaction; the callback may open its own. `recreateFailed` fires when a dropped package index cannot be recreated on exit, naming the index and the DDL; on PostgreSQL a failed `CREATE INDEX CONCURRENTLY` may leave an INVALID index to drop manually.
 
 ### `TemporalDomainException`
 
