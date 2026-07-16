@@ -19,8 +19,20 @@ Guards enforce the invariants the writer relies on. The shipped set:
 | `BootGuardNewCollection` | a model whose `newCollection()` isn't a `BitemporalCollection` |
 | `BootGuardDimensions` | a `temporalDimensions()` that isn't an array of column-name strings |
 | `BootGuardPrimaryKey` | a primary key that collides with a temporal column or a declared dimension |
+| `BootGuardConnection` | a model whose `temporalEntity()` lives on a different connection than the model — the writer locks and joins both in one transaction |
+| `BootGuardColumnsExist` | a temporal column (at its configured, possibly overridden, name) that is missing from the table — degrades to a pass when the table can't be introspected |
 
 A guard failure is not recoverable at runtime — it always indicates a configuration bug to fix before shipping.
+
+### Application guards
+
+A handful of guards validate the process-wide wiring rather than one model. They run once per boot (gated by `guards.enabled`), after the lens-lifecycle listeners are registered, and collect their failures into a single `TemporalConfigurationException`:
+
+| App guard | Rejects |
+| --- | --- |
+| `AppGuardLockStrategy` | a `writes.lock_strategy` that isn't one of `parent_row`, `advisory`, `custom` |
+| `AppGuardLockerBinding` | a non-`custom` strategy with no bound `WriteLocker` |
+| `AppGuardAsOfLifecycle` | the queue `JobProcessing` lens-reset listener not being registered |
 
 ## Lints
 
@@ -30,6 +42,7 @@ Lints catch the subtler mistakes that compile and run but quietly do the wrong t
 | --- | --- |
 | `BootLintCompactionExcludesDomainColumn` | `writes.compaction_excluded_columns` lists a **domain** column — compaction would silently merge segments that differ only on that column, erasing real history |
 | `BootLintMutableDatetimeCast` | a temporal column is declared with a **mutable** `datetime`/`date` cast — the trait applies `immutable_datetime` automatically, and a mutable cast is usually a copy-paste error |
+| `BootLintAdvisoryLockUnavailable` | `writes.lock_strategy` is `advisory` but the model's connection (e.g. SQLite) has no advisory locks, so writes silently fall back to `parent_row` |
 
 Each raised lint is logged at warning level and dispatched as a `TemporalBootLintRaised` event:
 

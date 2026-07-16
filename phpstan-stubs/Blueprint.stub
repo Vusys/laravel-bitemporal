@@ -27,7 +27,7 @@ class Blueprint
     /**
      * @param array<string, string> $options
      */
-    public function bitemporalPeriods(array $options = [], bool $nullable = false): void {}
+    public function bitemporalPeriods(array $options = [], bool $nullable = false, bool $useRanges = false): void {}
 
     /**
      * @param class-string<\Illuminate\Database\Eloquent\Model> $related
@@ -45,6 +45,7 @@ class Blueprint
     /**
      * @param array<int, string> $entityColumns
      * @param array<int, string> $dimensions
+     * @param array<string, string> $options
      */
-    public function preventBitemporalOverlaps(array $entityColumns, array $dimensions = []): void {}
+    public function preventBitemporalOverlaps(array $entityColumns, array $dimensions = [], bool $useRanges = false, array $options = []): void {}
 }

@@ -6,10 +6,12 @@ namespace Vusys\Bitemporal;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\ServiceProvider;
 use Vusys\Bitemporal\AuditLog\TemporalAuditLogSubscriber;
+use Vusys\Bitemporal\Boot\AppGuards;
 use Vusys\Bitemporal\Console\Commands\AuditOverlapsCommand;
 use Vusys\Bitemporal\Console\Commands\AuditTableCommand;
 use Vusys\Bitemporal\Console\Commands\DiffTimelinesCommand;
@@ -20,10 +22,14 @@ use Vusys\Bitemporal\Console\Commands\PruneIdempotencyKeysCommand;
 use Vusys\Bitemporal\Console\Commands\WarmGuardsCommand;
 use Vusys\Bitemporal\Database\TemporalBlueprintMacros;
 use Vusys\Bitemporal\Lens\AsOfJobListener;
+use Vusys\Bitemporal\Lens\AsOfOctaneListener;
 use Vusys\Bitemporal\Lens\LensStack;
 use Vusys\Bitemporal\Locking\AdvisoryLocker;
 use Vusys\Bitemporal\Locking\ParentRowLocker;
 use Vusys\Bitemporal\Locking\WriteLocker;
+use Vusys\Bitemporal\Observability\NullMetrics;
+use Vusys\Bitemporal\Observability\TemporalMetrics;
+use Vusys\Bitemporal\Observability\TemporalMetricsSubscriber;
 use Vusys\Bitemporal\Testing\PestExpectations;
 
 final class BitemporalServiceProvider extends ServiceProvider
@@ -43,6 +49,10 @@ final class BitemporalServiceProvider extends ServiceProvider
         }
 
         $this->app->singleton(LensStack::class);
+
+        // No-op metrics by default; an application overrides by binding its own
+        // TemporalMetrics implementation. Nothing is emitted until it does.
+        $this->app->bindIf(TemporalMetrics::class, NullMetrics::class);
     }
 
     public function boot(): void
@@ -64,9 +74,29 @@ final class BitemporalServiceProvider extends ServiceProvider
         $events = $this->app->make(Dispatcher::class);
         $events->listen(JobProcessing::class, [AsOfJobListener::class, 'handleProcessing']);
         $events->listen(JobProcessed::class, [AsOfJobListener::class, 'handleProcessed']);
+        $events->listen(JobFailed::class, [AsOfJobListener::class, 'handleFailed']);
+
+        // Octane/FrankenPHP/Swoole request lifecycle. Listened by class-string
+        // name so there is no hard dependency on laravel/octane: the listeners
+        // only ever fire when Octane is installed and dispatches these events.
+        $events->listen('Laravel\Octane\Events\RequestReceived', [AsOfOctaneListener::class, 'handleRequestReceived']);
+        $events->listen('Laravel\Octane\Events\RequestTerminated', [AsOfOctaneListener::class, 'handleRequestTerminated']);
+        $events->listen('Laravel\Octane\Events\WorkerStarting', [AsOfOctaneListener::class, 'handleWorkerStarting']);
 
         if (config('bitemporal.audit_log.enabled', false) === true) {
             $events->subscribe(TemporalAuditLogSubscriber::class);
+        }
+
+        // Always subscribe: it resolves TemporalMetrics from the container, so it
+        // costs nothing while NullMetrics is bound and starts emitting the moment
+        // an application binds its own implementation.
+        $events->subscribe(TemporalMetricsSubscriber::class);
+
+        // Application-level boot guards run once, after the lifecycle listeners
+        // are registered (AppGuardAsOfLifecycle checks for them). Gated by the
+        // same guards.enabled switch as the per-model guards.
+        if (config('bitemporal.guards.enabled', true) === true) {
+            AppGuards::default($this->app)->run();
         }
 
         if ($this->app->runningInConsole()) {
