@@ -5,6 +5,20 @@ All notable changes to `vusys/laravel-bitemporal` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-07-15
+
+Documentation site and project infrastructure.
+
+### Added
+- MkDocs Material documentation site with GitHub Pages deploy.
+- Domain-driven worked-example documentation pages.
+- README badges, Codecov coverage upload, and OpenSSF Scorecard.
+
+### Changed
+- CI provisions only the matrixed database per cell.
+- Removed roadmap references; package presented as feature-complete.
+- Dependabot dependency updates (actions/checkout, upload/download-artifact, dev dependencies).
+
 ## [0.2.0] - 2026-06-27
 
 Mutation-test hardening.
