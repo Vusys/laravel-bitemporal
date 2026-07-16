@@ -32,11 +32,7 @@ final class TemporalBlueprintMacros
         // the long temporal column names push past MySQL/MariaDB's 64-char
         // identifier limit. Use a short, deterministic name, hashing only when
         // a long table name would still overflow.
-        $overlapIndex = static function (string $table, string $suffix): string {
-            $name = "{$table}_{$suffix}";
-
-            return strlen($name) <= 64 ? $name : "{$suffix}_".md5($name);
-        };
+        $overlapIndex = static fn (string $table, string $suffix): string => self::overlapIndexName($table, $suffix);
 
         /**
          * @param  array<string, string>  $map
@@ -166,6 +162,20 @@ final class TemporalBlueprintMacros
                 );
             });
         }
+    }
+
+    /**
+     * The deterministic name for an overlap-prevention index/constraint on a
+     * table. Short by default; hashed only when a long table name would push
+     * the identifier past MySQL/MariaDB's 64-char limit. The single source of
+     * truth for package index names — shared by the emit macros and the
+     * runtime IndexRegistry that identifies them for withoutIndexes().
+     */
+    public static function overlapIndexName(string $table, string $suffix): string
+    {
+        $name = "{$table}_{$suffix}";
+
+        return strlen($name) <= 64 ? $name : "{$suffix}_".md5($name);
     }
 
     /**

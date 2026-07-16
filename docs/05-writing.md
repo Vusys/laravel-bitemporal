@@ -114,4 +114,35 @@ $product->prices()->backfill()->timeline([
 
 Each returns a `TemporalBackfillCommitted` event.
 
+### Streaming large imports
+
+For large historical loads, `stream()` keeps memory bounded by validating and inserting a chunk at a time, each in its own transaction, so the whole set is never materialised at once:
+
+```php
+$product->prices()->backfill()
+    ->stream(chunkSize: 1000)
+    ->timeline($rowsIterable);
+```
+
+Chunks are not cross-validated during the stream — that would defeat streaming. Instead a scoped overlap audit runs after the final chunk and throws `TemporalOverlapException` if any cross-chunk overlap slipped through; the exception carries `getInsertedIds()` so you can recover with `forceDeleteHistory()`. A `TemporalBackfillCommitted` event fires once per chunk (with its `chunkIndex`) and once at the end (`chunkIndex` is `null`). Tune the defaults with `backfill.default_chunk_size` and `backfill.post_audit_check`.
+
+### Dropping indexes for a bulk load
+
+Very large loads pay a per-row cost maintaining the overlap indexes as rows are inserted. `TemporalLens::withoutIndexes()` drops the package-managed overlap indexes for the duration of a callback and rebuilds them once, in a single pass, on exit:
+
+```php
+use Vusys\Bitemporal\Facades\TemporalLens;
+
+TemporalLens::withoutIndexes(ProductPrice::class, function () use ($product, $rows) {
+    $product->prices()->backfill()->stream(chunkSize: 1000)->timeline($rows);
+});
+```
+
+- Only the indexes emitted by `preventBitemporalOverlaps()` / `preventTemporalOverlaps()` are dropped. Custom application indexes are left untouched, and on PostgreSQL the `EXCLUDE USING gist` constraint stays enforced throughout the load.
+- Recreation uses the engine's online path — `CREATE INDEX CONCURRENTLY` (PostgreSQL), `ALGORITHM=INPLACE, LOCK=NONE` (MySQL/MariaDB), a plain rebuild on SQLite. Set `backfill.online_ddl = false` to force a blocking rebuild on engine versions that reject the online path.
+- It is reentrant per table: nested calls for the same model are a no-op, and different models compose.
+- It **must not be called inside a transaction** — `CREATE INDEX CONCURRENTLY` forbids a transaction block — and throws [`TemporalOnlineDdlException`](09a-exception-catalogue.md#temporalonlineddlexception) if it is. The callback may still open its own transactions (the backfill does).
+
+While a table's overlap index is dropped, the writer's current-known lookups fall back to full scans, so concurrent routine writes to that table are slow (they stay correct — the advisory lock and the post-import audit still hold). It pays off only for genuinely large, one-off loads; for modest ETL the saved index maintenance is negligible. Quiesce concurrent writers for the duration if that matters.
+
 Next: [Dimensions](06-dimensions.md).

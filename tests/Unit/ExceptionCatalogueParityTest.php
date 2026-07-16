@@ -67,6 +67,7 @@ final class ExceptionCatalogueParityTest extends TestCase
         'TemporalWriteConflictException' => 'write_conflict',
         'TemporalUnsupportedDatabaseException' => 'unsupported_database',
         'TemporalDomainException' => 'domain',
+        'TemporalOnlineDdlException' => 'online_ddl',
     ];
 
     // --- discovery helpers ---------------------------------------------------

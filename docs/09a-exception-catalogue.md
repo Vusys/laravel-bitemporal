@@ -25,6 +25,7 @@ Message wording lives in `lang/en/messages.php`. The `:placeholder` token set in
 | `TemporalCardinalityException` | "exactly one" was expected and none / many were found, or a pivot correction/detach has no assignment to act on | usually a data/logic issue |
 | `TemporalWriteConflictException` | a concurrent or optimistic conflict — lock timeout, missing entity row, failed `expectedCurrentAttributes`, or an idempotency-key reuse with different parameters | retry or reconcile |
 | `TemporalUnsupportedDatabaseException` | the active engine can't support a requested feature — no `btree_gist`, advisory locks on SQLite, or a version below the minimum | yes — environment/config |
+| `TemporalOnlineDdlException` | a `TemporalLens::withoutIndexes()` online-DDL operation could not run — it was called inside a transaction, or a package index could not be recreated on exit | yes — call outside a transaction / rebuild the index |
 | `TemporalDomainException` | an internal invariant was violated, or the host clock regressed beyond tolerance | **no** — a package bug or environment fault; report it |
 
 ### `TemporalConfigurationException`
@@ -38,6 +39,10 @@ Returned by `sole()` as `expectedOneFoundNone` / `expectedOneFoundMany`, so a br
 ### `TemporalWriteConflictException`
 
 The concurrency surface. `expectation_failed` is the optimistic-concurrency check (`expectedCurrentAttributes`); `idempotency_conflict` fires when an [idempotency key](05-writing.md#idempotent-writes) is reused with different parameters; `lock_timeout` and `entity_missing` come from the locking strategy (see [Configuration](09-configuration.md)).
+
+### `TemporalOnlineDdlException`
+
+Raised by [`TemporalLens::withoutIndexes()`](05-writing.md#dropping-indexes-for-a-bulk-load). `insideTransaction` fires when it is called inside an open transaction (PostgreSQL `CREATE INDEX CONCURRENTLY` forbids a transaction block, and dropping indexes mid-transaction is unsafe) — call it outside any transaction; the callback may open its own. `recreateFailed` fires when a dropped package index cannot be recreated on exit, naming the index and the DDL; on PostgreSQL a failed `CREATE INDEX CONCURRENTLY` may leave an INVALID index to drop manually.
 
 ### `TemporalDomainException`
 
@@ -58,6 +63,7 @@ factory methods — the factory name plus the message encode the scenario (there
 | `TemporalCardinalityException` | `expectedOneFoundMany`, `expectedOneFoundNone`, `noAssignmentToCorrect`, `noAssignmentToDetach` |
 | `TemporalWriteConflictException` | `entityMissing`, `clockRegressed`, `lockTimeout`, `deadlock`, `connectionChanged`, `expectationFailed`, `idempotencyKeyReused` |
 | `TemporalUnsupportedDatabaseException` | `btreeGistMissing`, `advisoryLocksUnsupported`, `engineVersionBelowMinimum` |
+| `TemporalOnlineDdlException` | `insideTransaction`, `recreateFailed` |
 | `TemporalDomainException` | `invariant`, `clockSkew` |
 
 ## Asserting on exceptions in tests
