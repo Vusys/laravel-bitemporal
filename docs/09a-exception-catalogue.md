@@ -51,7 +51,7 @@ factory methods — the factory name plus the message encode the scenario (there
 
 | Exception | Factory methods |
 | --- | --- |
-| `TemporalConfigurationException` | `missingTemporalEntity`, `unexpectedEntityArgument`, `disabledPivotMethod`, `guardFailures` |
+| `TemporalConfigurationException` | `missingTemporalEntity`, `unexpectedEntityArgument`, `disabledPivotMethod`, `guardFailures`, `appGuardFailures` |
 | `TemporalInvalidSpellException` | `fromAfterTo`, `zeroLength`, `mergeDisjoint`, `antiRowCorrection`, `emptyTimelineSpan`, `unparseableDate` |
 | `TemporalMissingDimensionException` | `pendingWhere`, `forbiddenAttribute`, `incomplete`, `unknownDimension`, `conflict` |
 | `TemporalOverlapException` | `betweenSegments` |

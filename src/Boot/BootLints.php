@@ -7,6 +7,7 @@ namespace Vusys\Bitemporal\Boot;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use ReflectionClass;
+use Vusys\Bitemporal\Boot\Lints\BootLintAdvisoryLockUnavailable;
 use Vusys\Bitemporal\Boot\Lints\BootLintCompactionExcludesDomainColumn;
 use Vusys\Bitemporal\Boot\Lints\BootLintMutableDatetimeCast;
 use Vusys\Bitemporal\Events\TemporalBootLintRaised;
@@ -28,6 +29,7 @@ final readonly class BootLints
         return new self([
             new BootLintCompactionExcludesDomainColumn,
             new BootLintMutableDatetimeCast,
+            new BootLintAdvisoryLockUnavailable,
         ]);
     }
 
