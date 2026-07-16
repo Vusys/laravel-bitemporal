@@ -22,6 +22,18 @@ return [
         'enabled' => true,
     ],
 
+    'database' => [
+        // Opt in to PostgreSQL native range columns (tstzrange) + a
+        // database-enforced EXCLUDE USING gist overlap constraint. PG only;
+        // the composite-index path stays the default everywhere else.
+        'prefer_native_ranges' => false,
+
+        // Whether the EnableBitemporalExtensions migration may run
+        // CREATE EXTENSION IF NOT EXISTS btree_gist. Set false on locked-down
+        // hosts and install the extension out of band.
+        'create_postgres_extensions' => true,
+    ],
+
     'audit_log' => [
         'enabled' => false,
         'table' => 'temporal_audit_log',
