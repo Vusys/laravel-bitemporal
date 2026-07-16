@@ -5,6 +5,21 @@ All notable changes to `vusys/laravel-bitemporal` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Worked-example correctness — fixes surfaced by end-to-end tests of the four worked examples.
+
+### Fixed
+- `backfill()->timeline()` / `importHistoricalKnowledge()` now accept value columns supplied flat on each row (as `supersedeTimeline()` already does), not only nested under an `attributes` key.
+- `backfill()->timeline()` stamps the recorded axis as "now" for rows that omit `recorded_from`, instead of rejecting them — matching the documented behaviour for seeding a clean value history.
+- `make:bitemporal-model` scaffolds `temporalEntity()` with an explicit foreign key (`<entity>_id`) so it matches the column `bitemporalForeignFor()` emits; the previous stub let Eloquent guess `temporal_entity_id`, which the metadata resolver could not find.
+
+### Documentation
+- Corrected the worked examples (insurance, salary, subscriptions, tax) and the model/writing/dimensions guides: pinned the `temporalEntity()` foreign key, made value columns nullable where `retract()` is used, noted that a write replaces the whole value tuple, fixed a zero-length backfill spell, and pinned the `Compensation` table name.
+
+### Tested
+- Added a `Tests\Docs` suite that recreates all four worked examples end to end.
+
 ## [0.5.0] - 2026-07-16
 
 Bulk-load ergonomics.

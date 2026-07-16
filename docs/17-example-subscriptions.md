@@ -20,7 +20,7 @@ class Subscription extends Model
 
     public function temporalEntity(): BelongsTo
     {
-        return $this->belongsTo(Account::class);
+        return $this->belongsTo(Account::class, 'account_id');
     }
 }
 ```

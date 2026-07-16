@@ -35,6 +35,6 @@ final class MakeBitemporalModelCommandTest extends TestCase
         $contents = (string) file_get_contents($this->generated);
         $this->assertStringContainsString('use Vusys\Bitemporal\Bitemporal;', $contents);
         $this->assertStringContainsString('class WidgetPrice extends Model', $contents);
-        $this->assertStringContainsString('return $this->belongsTo(Widget::class);', $contents);
+        $this->assertStringContainsString("return \$this->belongsTo(Widget::class, 'widget_id');", $contents);
     }
 }

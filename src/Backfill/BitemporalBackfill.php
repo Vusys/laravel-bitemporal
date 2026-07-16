@@ -20,12 +20,23 @@ use Vusys\Bitemporal\Support\TemporalEntityMetadata;
 use Vusys\Bitemporal\TimelineSegment;
 
 /**
- * Imports historical knowledge with explicit recorded periods (ETL). Unlike the
- * routine write API it does not run the correction algorithm or capture a
- * recorded-at clock; the caller supplies recorded_from / recorded_to per row.
+ * Imports historical knowledge (ETL) without running the correction algorithm.
+ * Domain columns may be supplied flat on each row or nested under an
+ * 'attributes' key. `timeline()` stamps the recorded axis as "now" for any row
+ * that omits recorded_from — seeding a clean current-knowledge history —
+ * whereas `importHistoricalKnowledge()` is used with explicit recorded spells to
+ * reconstruct past beliefs.
  */
 final readonly class BitemporalBackfill
 {
+    /**
+     * Row keys the DSL reserves for period/control values; every other key is
+     * treated as a domain value column when a row supplies them flat.
+     *
+     * @var array<int, string>
+     */
+    private const array RESERVED_ROW_KEYS = ['attributes', 'valid_from', 'valid_to', 'recorded_from', 'recorded_to', 'is_retraction'];
+
     private TemporalEntityMetadata $meta;
 
     /**
@@ -80,12 +91,14 @@ final readonly class BitemporalBackfill
             return $this->insertStreaming($rows);
         }
 
+        $now = CarbonImmutable::now($this->timezone());
+
         $segments = [];
         foreach ($rows as $row) {
-            $segments[] = $this->toSegment($row);
+            $segments[] = $this->toSegment($row, $now);
         }
 
-        return $this->insert($segments);
+        return $this->insert($segments, $now);
     }
 
     /**
@@ -110,9 +123,9 @@ final readonly class BitemporalBackfill
     /**
      * @param  array<int, TimelineSegment>  $segments
      */
-    private function insert(array $segments): TemporalBackfillCommitted
+    private function insert(array $segments, CarbonImmutable $now): TemporalBackfillCommitted
     {
-        (new BackfillValidator)->validate($segments, CarbonImmutable::now($this->timezone()));
+        (new BackfillValidator)->validate($segments, $now);
 
         $committed = $this->connection()->transaction(function () use ($segments): TemporalBackfillCommitted {
             $this->locker->lockFor($this->entity, $this->dimensions);
@@ -153,7 +166,7 @@ final readonly class BitemporalBackfill
         $buffer = [];
 
         foreach ($rows as $row) {
-            $buffer[] = $this->toSegment($row);
+            $buffer[] = $this->toSegment($row, $now);
 
             if (count($buffer) >= (int) $this->chunkSize) {
                 $allInserted = [...$allInserted, ...$this->flushChunk($buffer, $chunkIndex, $now)];
@@ -263,13 +276,19 @@ final readonly class BitemporalBackfill
     /**
      * @param  array<string, mixed>  $row
      */
-    private function toSegment(array $row): TimelineSegment
+    private function toSegment(array $row, CarbonImmutable $now): TimelineSegment
     {
-        $attributes = $row['attributes'] ?? [];
+        // Domain columns may be nested under 'attributes' or supplied flat
+        // alongside the period columns (as supersedeTimeline() accepts them).
+        $attributes = $row['attributes'] ?? array_diff_key($row, array_flip(self::RESERVED_ROW_KEYS));
+
+        // timeline() stamps the recorded axis as "now" when no recorded_from is
+        // given; importHistoricalKnowledge() supplies explicit recorded spells.
+        $recordedFrom = $this->date($row['recorded_from'] ?? null) ?? $now;
 
         return new TimelineSegment(
             new Spell($this->date($row['valid_from'] ?? null), $this->date($row['valid_to'] ?? null)),
-            new Spell($this->date($row['recorded_from'] ?? null), $this->date($row['recorded_to'] ?? null)),
+            new Spell($recordedFrom, $this->date($row['recorded_to'] ?? null)),
             is_array($attributes) ? $attributes : [],
             (bool) ($row['is_retraction'] ?? false),
         );

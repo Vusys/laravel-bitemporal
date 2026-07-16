@@ -98,4 +98,40 @@ final class BackfillTest extends IntegrationTestCase
             ],
         ]);
     }
+
+    public function test_timeline_accepts_flat_value_columns(): void
+    {
+        CarbonImmutable::setTestNow('2026-06-01 00:00:00');
+
+        $product = $this->makeProduct();
+
+        // Domain columns supplied flat, as supersedeTimeline() accepts them —
+        // no 'attributes' wrapper.
+        $product->prices()->backfill()->timeline([
+            ['amount' => 1000, 'valid_from' => '2026-01-01', 'valid_to' => '2026-03-01', 'recorded_from' => '2026-01-01'],
+            ['amount' => 1200, 'valid_from' => '2026-03-01', 'valid_to' => null, 'recorded_from' => '2026-01-01'],
+        ]);
+
+        $this->assertSame(1000, $product->prices()->validAt('2026-02-01')->currentKnowledge()->sole()->amount);
+        $this->assertSame(1200, $product->prices()->validAt('2026-04-01')->currentKnowledge()->sole()->amount);
+    }
+
+    public function test_timeline_stamps_recorded_from_as_now_when_omitted(): void
+    {
+        CarbonImmutable::setTestNow('2026-06-01 00:00:00');
+
+        $product = $this->makeProduct();
+
+        // A clean value history: no recorded_from, so the recorded axis is
+        // stamped "now" and the rows land as current knowledge.
+        $product->prices()->backfill()->timeline([
+            ['amount' => 1000, 'valid_from' => '2023-01-01', 'valid_to' => '2024-01-01'],
+            ['amount' => 1200, 'valid_from' => '2024-01-01', 'valid_to' => null],
+        ]);
+
+        $row = $product->prices()->validAt('2023-06-01')->currentKnowledge()->sole();
+        $this->assertSame(1000, $row->amount);
+        $this->assertTrue($row->recorded_from->equalTo(CarbonImmutable::parse('2026-06-01')));
+        $this->assertSame(1200, $product->prices()->validAt('2026-01-01')->currentKnowledge()->sole()->amount);
+    }
 }

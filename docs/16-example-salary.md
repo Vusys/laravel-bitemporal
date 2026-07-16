@@ -19,12 +19,16 @@ class Compensation extends Model
 
     protected array $temporalDimensions = ['component'];
 
+    // "compensation" is uncountable, so Eloquent would infer the table as the
+    // singular `compensation`; pin it to match the migration.
+    protected $table = 'compensations';
+
     protected $guarded = [];
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
     public function temporalEntity(): BelongsTo
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(Employee::class, 'employee_id');
     }
 }
 ```

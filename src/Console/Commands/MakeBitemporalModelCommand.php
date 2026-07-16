@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Vusys\Bitemporal\Console\Commands;
 
 use Illuminate\Console\GeneratorCommand;
+use Illuminate\Support\Str;
 use Symfony\Component\Console\Input\InputOption;
 
 /**
@@ -37,8 +38,18 @@ final class MakeBitemporalModelCommand extends GeneratorCommand
 
         $entity = $this->option('entity');
         $entity = is_string($entity) && $entity !== '' ? $entity : 'Model';
+        $entity = class_basename($entity);
 
-        return str_replace('{{ entity }}', class_basename($entity), $stub);
+        // Pin the foreign key so it matches the column bitemporalForeignFor()
+        // emits (<entity>_id). Without it Eloquent guesses temporal_entity_id
+        // from the method name, which the metadata resolver then cannot find.
+        $foreignKey = Str::snake($entity).'_id';
+
+        return str_replace(
+            ['{{ entity }}', '{{ foreignKey }}'],
+            [$entity, $foreignKey],
+            $stub,
+        );
     }
 
     /**

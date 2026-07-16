@@ -21,10 +21,17 @@ class ProductPrice extends Model
 
     public function temporalEntity(): BelongsTo
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(Product::class, 'product_id');
     }
 }
 ```
+
+!!! important
+    Name the foreign key explicitly. Because the relation method is
+    `temporalEntity()`, Eloquent would otherwise guess `temporal_entity_id`,
+    which does not match the `product_id` column `bitemporalForeignFor()` emits —
+    and writes would fail resolving the entity. Pass the column as the second
+    `belongsTo()` argument (`make:bitemporal-model` does this for you).
 
 You do **not** declare `$casts` for the period columns — the trait applies `immutable_datetime` casts to `valid_from`, `valid_to`, `recorded_from`, `recorded_to` and a boolean cast to `is_retraction` automatically. Disable that with `protected bool $autoApplyTemporalCasts = false;` if you need to manage casts yourself.
 
@@ -105,6 +112,8 @@ Macro reference:
 `$options` lets you override individual column names (e.g. `bitemporalPeriods(['valid_from' => 'effective_from'])`); `$nullable` makes the *from* columns nullable for backfill scenarios.
 
 > **On overlap prevention.** `preventBitemporalOverlaps()` emits a covering composite index on every driver. The writer's application-level overlap detection is the primary guarantee on every engine, so a correct setup never produces overlaps; the index is defence in depth.
+
+> **Make value columns nullable if you retract.** A [`retract()`](05-writing.md) inserts an *anti-row* — a row that asserts a period never happened — with every domain value column `NULL`. If a value column is declared `NOT NULL`, the retraction fails on the constraint. Any timeline you intend to retract from (or backfill anti-rows into) must have nullable value columns.
 
 ### Polymorphic entities
 

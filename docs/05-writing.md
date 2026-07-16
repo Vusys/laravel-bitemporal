@@ -28,6 +28,14 @@ $product->prices()->correct(
 
 `validFrom` / `validTo` / `validAt` accept a `CarbonInterface` or a parseable date string.
 
+!!! warning "A write replaces the whole value tuple"
+    `changeEffectiveFrom` and `correct` set every value column from the
+    `attributes` you pass — they do not merge onto the existing row. Any value
+    column you omit is written as `NULL`, not carried over. On a model with more
+    than one value column, pass **all** of them each time (e.g. correcting a
+    policy's `limit` also needs `deductible` and `premium`), or you will silently
+    blank the others.
+
 ## Ending and retracting
 
 ```php
@@ -38,7 +46,7 @@ $product->prices()->endAt('2026-12-31');
 $product->prices()->retract(validFrom: '2026-02-01', validTo: '2026-03-01');
 ```
 
-`retract()` with no `validTo` retracts open-endedly from `validFrom`.
+`retract()` with no `validTo` retracts open-endedly from `validFrom`. The anti-row it inserts carries `NULL` in every value column, so those columns must be nullable — see [Defining models](03-defining-models.md#migrations).
 
 ## Replacing a whole timeline
 
@@ -99,7 +107,7 @@ A write is scoped to the relation's entity (and its dimensions, if any). Adding 
 
 ## Backfilling history
 
-When importing existing historical data — migrating from a legacy system, or seeding known-past knowledge — go through `backfill()` rather than the change/correct API, so you can stamp the recorded axis explicitly instead of "now":
+When importing existing historical data — migrating from a legacy system, or seeding known-past knowledge — go through `backfill()` rather than the change/correct API. It skips the correction algorithm and writes your rows directly, so a whole value history lands in one pass:
 
 ```php
 $product->prices()->backfill()->timeline([
@@ -108,8 +116,10 @@ $product->prices()->backfill()->timeline([
 ]);
 ```
 
-- `timeline($rows)` — import a clean current-knowledge timeline.
-- `importHistoricalKnowledge($rows)` — import rows that already carry recorded spells, reconstructing past *beliefs* (not just past values).
+Value columns may be given flat (as above) or nested under an `attributes` key. Every row needs `valid_from`/`valid_to`; `recorded_from`/`recorded_to` are optional and control which method you are effectively using:
+
+- `timeline($rows)` — import a clean current-knowledge timeline. Rows that omit `recorded_from` have the recorded axis stamped as "now".
+- `importHistoricalKnowledge($rows)` — import rows that already carry explicit recorded spells, reconstructing past *beliefs* (not just past values).
 - `retraction($row)` — backfill a single anti-row.
 
 Each returns a `TemporalBackfillCommitted` event.
