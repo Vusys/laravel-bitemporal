@@ -33,4 +33,17 @@ final class TemporalConfigurationException extends TemporalException
 
         return new self("temporal model {$model} failed boot validation:\n".implode("\n", $lines));
     }
+
+    /**
+     * @param  array<string, string>  $failures  guard short-name => message
+     */
+    public static function appGuardFailures(array $failures): self
+    {
+        $lines = [];
+        foreach ($failures as $guard => $message) {
+            $lines[] = "  [{$guard}] {$message}";
+        }
+
+        return new self("bitemporal application configuration is invalid:\n".implode("\n", $lines));
+    }
 }

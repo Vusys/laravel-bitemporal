@@ -11,6 +11,7 @@ use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\ServiceProvider;
 use Vusys\Bitemporal\AuditLog\TemporalAuditLogSubscriber;
+use Vusys\Bitemporal\Boot\AppGuards;
 use Vusys\Bitemporal\Console\Commands\AuditOverlapsCommand;
 use Vusys\Bitemporal\Console\Commands\AuditTableCommand;
 use Vusys\Bitemporal\Console\Commands\DiffTimelinesCommand;
@@ -77,6 +78,13 @@ final class BitemporalServiceProvider extends ServiceProvider
 
         if (config('bitemporal.audit_log.enabled', false) === true) {
             $events->subscribe(TemporalAuditLogSubscriber::class);
+        }
+
+        // Application-level boot guards run once, after the lifecycle listeners
+        // are registered (AppGuardAsOfLifecycle checks for them). Gated by the
+        // same guards.enabled switch as the per-model guards.
+        if (config('bitemporal.guards.enabled', true) === true) {
+            AppGuards::default($this->app)->run();
         }
 
         if ($this->app->runningInConsole()) {

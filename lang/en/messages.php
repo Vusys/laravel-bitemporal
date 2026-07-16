@@ -15,6 +15,7 @@ return [
         'relation_type' => 'temporalEntity() on :model must return BelongsTo or MorphTo; found :type.',
         'missing_temporal_entity' => 'temporal model :model must define a temporalEntity() relation',
         'disabled_pivot_method' => ':method() is disabled on a temporal pivot relation because it would destroy history; use :useInstead instead',
+        'app_guard_failures' => 'bitemporal application configuration is invalid: :failures',
     ],
 
     'invalid_period' => [

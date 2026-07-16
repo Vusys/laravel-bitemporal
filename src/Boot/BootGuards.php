@@ -6,6 +6,8 @@ namespace Vusys\Bitemporal\Boot;
 
 use Illuminate\Database\Eloquent\Model;
 use ReflectionClass;
+use Vusys\Bitemporal\Boot\Guards\BootGuardColumnsExist;
+use Vusys\Bitemporal\Boot\Guards\BootGuardConnection;
 use Vusys\Bitemporal\Boot\Guards\BootGuardDimensions;
 use Vusys\Bitemporal\Boot\Guards\BootGuardNewCollection;
 use Vusys\Bitemporal\Boot\Guards\BootGuardNewEloquentBuilder;
@@ -36,6 +38,8 @@ final readonly class BootGuards
             new BootGuardNewCollection,
             new BootGuardDimensions,
             new BootGuardPrimaryKey,
+            new BootGuardConnection,
+            new BootGuardColumnsExist,
         ]);
     }
 
