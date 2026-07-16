@@ -33,6 +33,9 @@ use Vusys\Bitemporal\Exceptions\TemporalOverlapException;
 use Vusys\Bitemporal\Exceptions\TemporalWriteConflictException;
 use Vusys\Bitemporal\Idempotency\IdempotencyStore;
 use Vusys\Bitemporal\Locking\WriteLocker;
+use Vusys\Bitemporal\Locking\WriteLockHandle;
+use Vusys\Bitemporal\Observability\NullMetrics;
+use Vusys\Bitemporal\Observability\TemporalMetrics;
 use Vusys\Bitemporal\Spell;
 use Vusys\Bitemporal\Support\AttributeEquality;
 use Vusys\Bitemporal\Support\DimensionValidator;
@@ -218,8 +221,7 @@ final readonly class BitemporalWriter
 
         try {
             $committed = $this->connection()->transaction(function () use (&$handle): TemporalHardDeleteCommitted {
-                $handle?->release();
-                $handle = $this->locker->lockFor($this->entity, $this->dimensions, $this->lockTimeoutMs());
+                $handle = $this->acquireLock($handle);
 
                 $ids = array_map(
                     static fn (Model $model): mixed => $model->getKey(),
@@ -266,14 +268,14 @@ final readonly class BitemporalWriter
         }
 
         $handle = null;
+        $writeStart = microtime(true);
 
         try {
             $result = $this->connection()->transaction(function () use (&$handle, $windowResolver, $transform, $attributes, $compact, $starting, $committed, $expectedCurrentAttributes): TemporalWriteCommitted {
                 // A prior deadlock-retry attempt may have left a session-scoped
-                // advisory lock held; release it before re-acquiring so GET_LOCK
-                // stays balanced across retries.
-                $handle?->release();
-                $handle = $this->locker->lockFor($this->entity, $this->dimensions, $this->lockTimeoutMs());
+                // advisory lock held; acquireLock() releases it before
+                // re-acquiring so GET_LOCK stays balanced across retries.
+                $handle = $this->acquireLock($handle);
 
                 $recordedAt = $this->captureRecordedAt();
                 $currentModels = $this->loadCurrentKnown();
@@ -327,6 +329,15 @@ final readonly class BitemporalWriter
             throw $this->translateDeadlock($exception);
         } finally {
             $handle?->release();
+        }
+
+        $metrics = $this->metrics();
+        if (! $metrics instanceof NullMetrics) {
+            $metrics->writeLatency(
+                $operation === '' ? 'write' : $operation,
+                (microtime(true) - $writeStart) * 1000.0,
+                $this->metricTags($operation),
+            );
         }
 
         if ($idempotencyKey !== null) {
@@ -814,15 +825,61 @@ final readonly class BitemporalWriter
     }
 
     /**
+     * Acquire the write lock, releasing any handle from a prior retry first and
+     * recording the wait time — but only when a real TemporalMetrics is bound,
+     * so the default NullMetrics path stays allocation- and timing-free.
+     */
+    private function acquireLock(?WriteLockHandle $previous): WriteLockHandle
+    {
+        $previous?->release();
+
+        $metrics = $this->metrics();
+
+        if ($metrics instanceof NullMetrics) {
+            return $this->locker->lockFor($this->entity, $this->dimensions, $this->lockTimeoutMs());
+        }
+
+        $start = microtime(true);
+        $handle = $this->locker->lockFor($this->entity, $this->dimensions, $this->lockTimeoutMs());
+        $metrics->lockWaitMs((microtime(true) - $start) * 1000.0, $this->metricTags('lock'));
+
+        return $handle;
+    }
+
+    private function metrics(): TemporalMetrics
+    {
+        return app(TemporalMetrics::class);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function metricTags(string $operation): array
+    {
+        return [
+            'model' => $this->related::class,
+            'operation' => $operation === '' ? 'write' : $operation,
+            'engine' => $this->entity->getConnection()->getDriverName(),
+        ];
+    }
+
+    /**
      * A deadlock/serialization failure that survives Laravel's transaction-level
      * retries is a write conflict; surface it as one so callers handle it the
      * same way regardless of engine. Anything else propagates untouched.
      */
     private function translateDeadlock(QueryException $exception): \Throwable
     {
-        return $this->isDeadlock($exception)
-            ? TemporalWriteConflictException::deadlock($this->entityLabel())
-            : $exception;
+        if (! $this->isDeadlock($exception)) {
+            return $exception;
+        }
+
+        $metrics = $this->metrics();
+        if (! $metrics instanceof NullMetrics) {
+            $metrics->deadlockRetry($this->deadlockRetryAttempts(), $this->metricTags('deadlock'));
+        }
+
+        return TemporalWriteConflictException::deadlock($this->entityLabel());
     }
 
     private function isDeadlock(QueryException $exception): bool

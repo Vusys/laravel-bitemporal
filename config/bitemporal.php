@@ -22,6 +22,12 @@ return [
         'enabled' => true,
     ],
 
+    'observability' => [
+        // Opt in by binding a TemporalMetrics implementation; NullMetrics (a
+        // no-op) is bound by default, so nothing is emitted until you do.
+        'metrics_enabled' => false,
+    ],
+
     'database' => [
         // Opt in to PostgreSQL native range columns (tstzrange) + a
         // database-enforced EXCLUDE USING gist overlap constraint. PG only;

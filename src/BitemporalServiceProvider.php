@@ -27,6 +27,9 @@ use Vusys\Bitemporal\Lens\LensStack;
 use Vusys\Bitemporal\Locking\AdvisoryLocker;
 use Vusys\Bitemporal\Locking\ParentRowLocker;
 use Vusys\Bitemporal\Locking\WriteLocker;
+use Vusys\Bitemporal\Observability\NullMetrics;
+use Vusys\Bitemporal\Observability\TemporalMetrics;
+use Vusys\Bitemporal\Observability\TemporalMetricsSubscriber;
 use Vusys\Bitemporal\Testing\PestExpectations;
 
 final class BitemporalServiceProvider extends ServiceProvider
@@ -46,6 +49,10 @@ final class BitemporalServiceProvider extends ServiceProvider
         }
 
         $this->app->singleton(LensStack::class);
+
+        // No-op metrics by default; an application overrides by binding its own
+        // TemporalMetrics implementation. Nothing is emitted until it does.
+        $this->app->bindIf(TemporalMetrics::class, NullMetrics::class);
     }
 
     public function boot(): void
@@ -79,6 +86,11 @@ final class BitemporalServiceProvider extends ServiceProvider
         if (config('bitemporal.audit_log.enabled', false) === true) {
             $events->subscribe(TemporalAuditLogSubscriber::class);
         }
+
+        // Always subscribe: it resolves TemporalMetrics from the container, so it
+        // costs nothing while NullMetrics is bound and starts emitting the moment
+        // an application binds its own implementation.
+        $events->subscribe(TemporalMetricsSubscriber::class);
 
         // Application-level boot guards run once, after the lifecycle listeners
         // are registered (AppGuardAsOfLifecycle checks for them). Gated by the
