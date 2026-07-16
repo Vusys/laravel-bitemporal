@@ -55,6 +55,24 @@ final class LensStack
     }
 
     /**
+     * Run $callback with the model's package-managed overlap indexes dropped,
+     * recreating them on exit — for large bulk backfills that would otherwise
+     * pay per-row index maintenance. Custom indexes and the PostgreSQL EXCLUDE
+     * constraint are untouched. Reentrant per table. Must not be called inside a
+     * transaction.
+     *
+     * @template TReturn
+     *
+     * @param  class-string<Model>  $model
+     * @param  Closure(): TReturn  $callback
+     * @return TReturn
+     */
+    public function withoutIndexes(string $model, Closure $callback): mixed
+    {
+        return resolve(WithoutIndexes::class)->run($model, $callback);
+    }
+
+    /**
      * Run guards + lints against each model without throwing, collecting the
      * results into a single report.
      *

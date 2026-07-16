@@ -56,6 +56,11 @@ return [
         'advisory_sqlite' => 'SQLite does not support advisory locks; falling back to parent_row.',
     ],
 
+    'online_ddl' => [
+        'inside_transaction' => 'withoutIndexes() cannot run inside a transaction (level :level); it drops and recreates indexes and CREATE INDEX CONCURRENTLY forbids a transaction block.',
+        'recreate_failed' => "Failed to recreate package index ':index' after withoutIndexes(); the table is left without it and must be rebuilt manually.",
+    ],
+
     'domain' => [
         'invariant' => 'Internal: :assertion failed at :algorithm. Report this with reproduction.',
         'clock_skew' => 'Clock skew at :entity: max(recorded_from) = :persisted, now() = :now, drift :drift ms exceeds writes.clock_skew_tolerance_ms (:tolerance ms).',

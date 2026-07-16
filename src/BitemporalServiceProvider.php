@@ -24,6 +24,7 @@ use Vusys\Bitemporal\Database\TemporalBlueprintMacros;
 use Vusys\Bitemporal\Lens\AsOfJobListener;
 use Vusys\Bitemporal\Lens\AsOfOctaneListener;
 use Vusys\Bitemporal\Lens\LensStack;
+use Vusys\Bitemporal\Lens\WithoutIndexes;
 use Vusys\Bitemporal\Locking\AdvisoryLocker;
 use Vusys\Bitemporal\Locking\ParentRowLocker;
 use Vusys\Bitemporal\Locking\WriteLocker;
@@ -49,6 +50,9 @@ final class BitemporalServiceProvider extends ServiceProvider
         }
 
         $this->app->singleton(LensStack::class);
+
+        // Shared reentrancy state for TemporalLens::withoutIndexes().
+        $this->app->singleton(WithoutIndexes::class);
 
         // No-op metrics by default; an application overrides by binding its own
         // TemporalMetrics implementation. Nothing is emitted until it does.
