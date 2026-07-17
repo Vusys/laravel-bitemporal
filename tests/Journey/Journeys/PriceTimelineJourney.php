@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Vusys\Bitemporal\Tests\Journey\Journeys;
 
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Collection;
 use PHPUnit\Framework\Assert;
-use Vusys\Bitemporal\Exceptions\TemporalInvalidSpellException;
 use Vusys\Bitemporal\Tests\Fixtures\Models\Product;
 use Vusys\Bitemporal\Tests\Fixtures\Models\ProductPrice;
 use Vusys\Runabout\Context;
@@ -32,6 +30,8 @@ use Vusys\Runabout\Step;
  */
 final class PriceTimelineJourney extends Journey
 {
+    use ExploresTimelines;
+
     /**
      * The instant the timeline is anchored to. The clock only ever moves forward
      * from here, so `knownAt(START)` observations stay reproducible.
@@ -222,48 +222,5 @@ final class PriceTimelineJourney extends Journey
                 );
             }),
         ];
-    }
-
-    /**
-     * Run a write that may legitimately reject the *drawn window* — a
-     * past-dated forward change, an empty or inverted span — and report whether
-     * it was rejected so the caller can assert conditionally.
-     *
-     * Only `TemporalInvalidSpellException` is tolerated: it means "you asked for
-     * a nonsensical window", which the shuffler legitimately does. Any other
-     * temporal exception (an overlap-guard trip, a write conflict) signals
-     * corruption and is deliberately left to propagate and fail the trail.
-     */
-    private function attempt(callable $write): bool
-    {
-        try {
-            $write();
-
-            return false;
-        } catch (TemporalInvalidSpellException) {
-            return true;
-        }
-    }
-
-    /**
-     * A stable, comparable view of a set of price rows.
-     *
-     * @param  Collection<int, ProductPrice>  $rows
-     * @return list<array{valid_from: string, valid_to: string|null, amount: int|null}>
-     */
-    private function snapshot(Collection $rows): array
-    {
-        $view = [];
-        foreach ($rows as $p) {
-            $view[] = [
-                'valid_from' => (string) $p->valid_from,
-                'valid_to' => $p->valid_to === null ? null : (string) $p->valid_to,
-                'amount' => $p->amount,
-            ];
-        }
-
-        usort($view, fn (array $a, array $b): int => $a['valid_from'] <=> $b['valid_from']);
-
-        return $view;
     }
 }

@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Vusys\Bitemporal\Tests\Journey\Journeys;
 
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Collection;
 use PHPUnit\Framework\Assert;
-use Vusys\Bitemporal\Exceptions\TemporalInvalidSpellException;
 use Vusys\Bitemporal\Tests\Fixtures\Models\Product;
 use Vusys\Bitemporal\Tests\Fixtures\Models\ProductPriceWithDimensions;
 use Vusys\Runabout\Context;
@@ -27,6 +25,8 @@ use Vusys\Runabout\Step;
  */
 final class DimensionedPriceJourney extends Journey
 {
+    use ExploresTimelines;
+
     private const string START = '2026-01-01 00:00:00';
 
     /** @var list<string> */
@@ -59,6 +59,7 @@ final class DimensionedPriceJourney extends Journey
                     $ctx->remember('t0', $t0);
                     $ctx->remember('known at t0', $this->snapshot(
                         $product->dimensionedPrices()->knownAt($t0)->excludeRetractions()->get(),
+                        ['currency'],
                     ));
                     $ctx->travel('+1 second');
                 })
@@ -167,6 +168,7 @@ final class DimensionedPriceJourney extends Journey
                         ->knownAt($ctx->instance('t0', CarbonImmutable::class))
                         ->excludeRetractions()
                         ->get(),
+                    ['currency'],
                 );
 
                 Assert::assertSame(
@@ -176,37 +178,5 @@ final class DimensionedPriceJourney extends Journey
                 );
             }),
         ];
-    }
-
-    private function attempt(callable $write): bool
-    {
-        try {
-            $write();
-
-            return false;
-        } catch (TemporalInvalidSpellException) {
-            return true;
-        }
-    }
-
-    /**
-     * @param  Collection<int, ProductPriceWithDimensions>  $rows
-     * @return list<array{currency: string|null, valid_from: string, valid_to: string|null, amount: int|null}>
-     */
-    private function snapshot(Collection $rows): array
-    {
-        $view = [];
-        foreach ($rows as $p) {
-            $view[] = [
-                'currency' => $p->currency,
-                'valid_from' => (string) $p->valid_from,
-                'valid_to' => $p->valid_to === null ? null : (string) $p->valid_to,
-                'amount' => $p->amount,
-            ];
-        }
-
-        usort($view, fn (array $a, array $b): int => [$a['currency'], $a['valid_from']] <=> [$b['currency'], $b['valid_from']]);
-
-        return $view;
     }
 }
