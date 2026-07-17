@@ -7,7 +7,7 @@ namespace Vusys\Bitemporal\Tests\Journey\Journeys;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use PHPUnit\Framework\Assert;
-use Vusys\Bitemporal\Exceptions\TemporalException;
+use Vusys\Bitemporal\Exceptions\TemporalInvalidSpellException;
 use Vusys\Bitemporal\Tests\Fixtures\Models\Product;
 use Vusys\Bitemporal\Tests\Fixtures\Models\ProductPrice;
 use Vusys\Runabout\Context;
@@ -225,9 +225,14 @@ final class PriceTimelineJourney extends Journey
     }
 
     /**
-     * Run a write that may legitimately reject the drawn window; report whether
-     * it was rejected so the caller can assert conditionally. Invariants must
-     * hold either way.
+     * Run a write that may legitimately reject the *drawn window* — a
+     * past-dated forward change, an empty or inverted span — and report whether
+     * it was rejected so the caller can assert conditionally.
+     *
+     * Only `TemporalInvalidSpellException` is tolerated: it means "you asked for
+     * a nonsensical window", which the shuffler legitimately does. Any other
+     * temporal exception (an overlap-guard trip, a write conflict) signals
+     * corruption and is deliberately left to propagate and fail the trail.
      */
     private function attempt(callable $write): bool
     {
@@ -235,7 +240,7 @@ final class PriceTimelineJourney extends Journey
             $write();
 
             return false;
-        } catch (TemporalException) {
+        } catch (TemporalInvalidSpellException) {
             return true;
         }
     }
