@@ -39,7 +39,7 @@ class Address extends Model
     /**
      * @return MorphTo<Model, $this>
      */
-    public function temporalEntity(): MorphTo
+    public function temporalEntityRelation(): MorphTo
     {
         return $this->owner();
     }

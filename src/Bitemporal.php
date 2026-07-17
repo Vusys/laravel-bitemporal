@@ -14,8 +14,9 @@ use Vusys\Bitemporal\Concerns\HasTemporalEntity;
 use Vusys\Bitemporal\Lens\LensStack;
 
 /**
- * Marks an Eloquent model as temporal. The model must define a
- * `temporalEntity()` relation (BelongsTo or MorphTo).
+ * Marks an Eloquent model as temporal. The model declares the entity it versions
+ * with a `$temporalEntity` class-string (a conventional BelongsTo), or overrides
+ * `temporalEntityRelation()` for a polymorphic or non-conventional relation.
  *
  * @phpstan-require-extends Model
  */

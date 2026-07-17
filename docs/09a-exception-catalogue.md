@@ -18,7 +18,7 @@ Message wording lives in `lang/en/messages.php`. The `:placeholder` token set in
 
 | Exception | Thrown when | Caller error? |
 | --- | --- | --- |
-| `TemporalConfigurationException` | a model is mis-wired — soft-deletes clash, wrong `temporalEntity()` type, a missing relation, a disabled pivot method, a failed boot guard | yes — fix configuration |
+| `TemporalConfigurationException` | a model is mis-wired — soft-deletes clash, wrong `temporalEntityRelation()` type, a missing relation, a disabled pivot method, a failed boot guard | yes — fix configuration |
 | `TemporalInvalidSpellException` | a supplied period is invalid — inverted (`from >= to`), zero-length, or a non-forward-dated `changeEffectiveFrom` | yes — fix the dates |
 | `TemporalMissingDimensionException` | a write can't be scoped — a pending `where()`, an incomplete dimension tuple, or a `forDimensions`/attributes conflict | yes — see [Dimensions](06-dimensions.md) |
 | `TemporalOverlapException` | a write or a supplied timeline would produce overlapping valid periods | yes — the overlap is in your data |
@@ -30,7 +30,7 @@ Message wording lives in `lang/en/messages.php`. The `:placeholder` token set in
 
 ### `TemporalConfigurationException`
 
-Raised at boot or relation-resolution. Covers: `Bitemporal` + `SoftDeletes` on the same model; a `temporalEntity()` that is not `BelongsTo`/`MorphTo`; a missing `temporalEntity()`; calling a [disabled pivot method](11-pivots.md#writing-assignments) (`attach`/`detach`/`sync`); and aggregated boot-guard failures. See [Boot guards and lints](13-boot-guards-and-lints.md).
+Raised at boot or relation-resolution. Covers: `Bitemporal` + `SoftDeletes` on the same model; a `temporalEntityRelation()` that is not `BelongsTo`/`MorphTo`; a missing `$temporalEntity`; calling a [disabled pivot method](11-pivots.md#writing-assignments) (`attach`/`detach`/`sync`); and aggregated boot-guard failures. See [Boot guards and lints](13-boot-guards-and-lints.md).
 
 ### `TemporalCardinalityException`
 

@@ -6,7 +6,6 @@ namespace Vusys\Bitemporal\Tests\Docs\Models;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Vusys\Bitemporal\Bitemporal;
 
 /**
@@ -30,6 +29,8 @@ class Subscription extends Model
      */
     protected array $temporalDimensions = ['region'];
 
+    protected string $temporalEntity = Account::class;
+
     protected $guarded = [];
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
@@ -40,13 +41,4 @@ class Subscription extends Model
     protected $casts = [
         'seats' => 'integer',
     ];
-
-    /**
-     * @return BelongsTo<Account, $this>
-     */
-    public function temporalEntity(): BelongsTo
-    {
-        // FK pinned to match the column bitemporalForeignFor() emits — see PolicyCoverage.
-        return $this->belongsTo(Account::class, 'account_id');
-    }
 }

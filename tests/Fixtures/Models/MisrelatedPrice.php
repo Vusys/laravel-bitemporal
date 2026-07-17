@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Vusys\Bitemporal\Bitemporal;
 
 /**
- * Intentionally misconfigured: temporalEntity() returns a HasMany instead of a
+ * Intentionally misconfigured: temporalEntityRelation() returns a HasMany instead of a
  * BelongsTo/MorphTo. Used to exercise BootGuardRelationType.
  */
 class MisrelatedPrice extends Model
@@ -23,7 +23,7 @@ class MisrelatedPrice extends Model
     /**
      * @return HasMany<Product, $this>
      */
-    public function temporalEntity(): HasMany
+    public function temporalEntityRelation(): HasMany
     {
         return $this->hasMany(Product::class, 'id');
     }

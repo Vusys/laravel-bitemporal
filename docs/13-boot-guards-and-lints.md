@@ -14,12 +14,12 @@ Guards enforce the invariants the writer relies on. The shipped set:
 | Guard | Rejects |
 | --- | --- |
 | `BootGuardSoftDeletes` | combining `Bitemporal` with `SoftDeletes` — use `retract()` / `forceDeleteHistory()` instead |
-| `BootGuardRelationType` | a `temporalEntity()` that isn't `BelongsTo` or `MorphTo` (`Pivot` models are exempt) |
+| `BootGuardRelationType` | a `temporalEntityRelation()` that isn't `BelongsTo` or `MorphTo` (`Pivot` models are exempt) |
 | `BootGuardNewEloquentBuilder` | a model whose `newEloquentBuilder()` isn't a `BitemporalBuilder` |
 | `BootGuardNewCollection` | a model whose `newCollection()` isn't a `BitemporalCollection` |
 | `BootGuardDimensions` | a `temporalDimensions()` that isn't an array of column-name strings |
 | `BootGuardPrimaryKey` | a primary key that collides with a temporal column or a declared dimension |
-| `BootGuardConnection` | a model whose `temporalEntity()` lives on a different connection than the model — the writer locks and joins both in one transaction |
+| `BootGuardConnection` | a model whose `temporalEntityRelation()` lives on a different connection than the model — the writer locks and joins both in one transaction |
 | `BootGuardColumnsExist` | a temporal column (at its configured, possibly overridden, name) that is missing from the table — degrades to a pass when the table can't be introspected |
 
 A guard failure is not recoverable at runtime — it always indicates a configuration bug to fix before shipping.

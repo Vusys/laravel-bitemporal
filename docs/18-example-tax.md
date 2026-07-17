@@ -13,15 +13,12 @@ class TaxRate extends Model
 {
     use Bitemporal;
 
+    protected string $temporalEntity = TaxJurisdiction::class;
+
     protected array $temporalDimensions = ['category'];
 
     protected $guarded = [];
     protected $dateFormat = 'Y-m-d H:i:s.u';
-
-    public function temporalEntity(): BelongsTo
-    {
-        return $this->belongsTo(TaxJurisdiction::class, 'tax_jurisdiction_id');
-    }
 }
 ```
 

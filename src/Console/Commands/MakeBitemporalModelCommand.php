@@ -10,7 +10,7 @@ use Symfony\Component\Console\Input\InputOption;
 
 /**
  * Generates a temporal Eloquent model wired with the Bitemporal trait and a
- * temporalEntity() BelongsTo relation.
+ * $temporalEntity class-string declaring the entity it versions.
  */
 final class MakeBitemporalModelCommand extends GeneratorCommand
 {
@@ -40,9 +40,9 @@ final class MakeBitemporalModelCommand extends GeneratorCommand
         $entity = is_string($entity) && $entity !== '' ? $entity : 'Model';
         $entity = class_basename($entity);
 
-        // Pin the foreign key so it matches the column bitemporalForeignFor()
-        // emits (<entity>_id). Without it Eloquent guesses temporal_entity_id
-        // from the method name, which the metadata resolver then cannot find.
+        // The natural key the library derives from the entity class and that
+        // bitemporalForeignFor() emits (<entity>_id) — referenced in the stub's
+        // doc comment so the generated model documents its own foreign key.
         $foreignKey = Str::snake($entity).'_id';
 
         return str_replace(

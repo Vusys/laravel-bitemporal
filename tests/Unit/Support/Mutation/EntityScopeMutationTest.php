@@ -27,7 +27,7 @@ final class EntityScopeMutationTest extends TestCase
     }
 
     // Kills the first throw's Concat / ConcatOperandRemoval / Throw_ mutants:
-    // a related model without a temporalEntity() method must raise the
+    // a related model without a temporalEntityRelation() method must raise the
     // configuration error with the class name + the descriptive suffix.
     public function test_missing_relation_method_throws_with_class_and_message(): void
     {
@@ -36,7 +36,7 @@ final class EntityScopeMutationTest extends TestCase
             $this->fail('Expected a TemporalInvalidSpellException.');
         } catch (TemporalInvalidSpellException $exception) {
             $this->assertStringStartsWith(Role::class, $exception->getMessage());
-            $this->assertStringContainsString('must define a temporalEntity() relation', $exception->getMessage());
+            $this->assertStringContainsString('must declare a $temporalEntity model class or a temporalEntityRelation() method', $exception->getMessage());
         }
     }
 

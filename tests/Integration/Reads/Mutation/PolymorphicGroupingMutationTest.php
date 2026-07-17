@@ -96,7 +96,7 @@ final class PolymorphicGroupingMutationTest extends IntegrationTestCase
         $this->collect([$address])->groupByTemporalEntityType();
     }
 
-    // Kills temporalEntityRelation Throw_ #1: a model lacking temporalEntity()
+    // Kills temporalEntityRelation Throw_ #1: a model lacking temporalEntityRelation()
     // must raise the missing-relation error.
     public function test_missing_temporal_entity_relation_throws(): void
     {
@@ -106,7 +106,7 @@ final class PolymorphicGroupingMutationTest extends IntegrationTestCase
     }
 
     // Kills temporalEntityRelation InstanceOf_ (`! instanceof BelongsTo`) +
-    // Throw_ #2: a HasMany temporalEntity() must be rejected.
+    // Throw_ #2: a HasMany temporalEntityRelation() must be rejected.
     public function test_non_belongs_to_relation_throws(): void
     {
         $related = TemporalLens::withoutBootGuards(fn (): MisrelatedPrice => new MisrelatedPrice(['id' => 1]));

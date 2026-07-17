@@ -10,7 +10,7 @@ use Vusys\Bitemporal\Bitemporal;
 
 /**
  * Deliberately broken: pinned to a different connection than its
- * temporalEntity() (Product, on the default connection). Used to exercise
+ * temporalEntityRelation() (Product, on the default connection). Used to exercise
  * BootGuardConnection (booted via TemporalLens::withoutBootGuards so the guard
  * can be invoked in isolation).
  */
@@ -29,7 +29,7 @@ class CrossConnectionPrice extends Model
     /**
      * @return BelongsTo<Product, $this>
      */
-    public function temporalEntity(): BelongsTo
+    public function temporalEntityRelation(): BelongsTo
     {
         // The related Product resolves on the default connection, so the two
         // sides disagree.

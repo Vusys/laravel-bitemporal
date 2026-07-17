@@ -6,7 +6,6 @@ namespace Vusys\Bitemporal\Tests\Docs\Models;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Vusys\Bitemporal\Bitemporal;
 
 /**
@@ -25,17 +24,11 @@ class PolicyCoverage extends Model
 {
     use Bitemporal;
 
+    // The library derives the BelongsTo and its policy_id foreign key from this
+    // class — the same column bitemporalForeignFor() emits in the migration.
+    protected string $temporalEntity = Policy::class;
+
     protected $guarded = [];
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
-
-    /**
-     * @return BelongsTo<Policy, $this>
-     */
-    public function temporalEntity(): BelongsTo
-    {
-        // FK pinned to match the policy_id column bitemporalForeignFor() emits;
-        // otherwise Eloquent guesses temporal_entity_id from the method name.
-        return $this->belongsTo(Policy::class, 'policy_id');
-    }
 }

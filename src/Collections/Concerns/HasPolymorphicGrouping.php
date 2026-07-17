@@ -36,7 +36,7 @@ trait HasPolymorphicGrouping
 
     protected function temporalEntityType(Model $model): string
     {
-        $relation = $this->temporalEntityRelation($model);
+        $relation = $this->entityRelationOf($model);
 
         if ($relation instanceof MorphTo) {
             $type = $model->getAttribute($relation->getMorphType());
@@ -53,7 +53,7 @@ trait HasPolymorphicGrouping
 
     protected function temporalEntityId(Model $model): int|string
     {
-        $value = $model->getAttribute($this->temporalEntityRelation($model)->getForeignKeyName());
+        $value = $model->getAttribute($this->entityRelationOf($model)->getForeignKeyName());
 
         if (is_int($value) || is_string($value)) {
             return $value;
@@ -64,22 +64,22 @@ trait HasPolymorphicGrouping
 
     protected function temporalEntityIsPolymorphic(Model $model): bool
     {
-        return $this->temporalEntityRelation($model) instanceof MorphTo;
+        return $this->entityRelationOf($model) instanceof MorphTo;
     }
 
     /**
      * @return BelongsTo<Model, Model>
      */
-    protected function temporalEntityRelation(Model $model): BelongsTo
+    protected function entityRelationOf(Model $model): BelongsTo
     {
-        if (! method_exists($model, 'temporalEntity')) {
+        if (! method_exists($model, 'temporalEntityRelation')) {
             throw TemporalConfigurationException::missingTemporalEntity($model::class);
         }
 
-        $relation = $model->temporalEntity();
+        $relation = $model->temporalEntityRelation();
 
         if (! $relation instanceof BelongsTo) {
-            throw new TemporalConfigurationException('temporalEntity() must return a BelongsTo or MorphTo relation');
+            throw new TemporalConfigurationException('temporalEntityRelation() must return a BelongsTo or MorphTo relation');
         }
 
         return $relation;

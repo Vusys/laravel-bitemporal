@@ -150,11 +150,11 @@ final class DiffEngine
      */
     private static function entityColumns(Model $model): array
     {
-        if (! method_exists($model, 'temporalEntity')) {
+        if (! method_exists($model, 'temporalEntityRelation')) {
             return [];
         }
 
-        $relation = $model->temporalEntity();
+        $relation = $model->temporalEntityRelation();
 
         if ($relation instanceof MorphTo) {
             return [$relation->getMorphType(), $relation->getForeignKeyName()];

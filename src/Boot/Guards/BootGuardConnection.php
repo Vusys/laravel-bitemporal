@@ -11,7 +11,7 @@ use Throwable;
 use Vusys\Bitemporal\Boot\BootGuard;
 
 /**
- * A temporal model and its temporalEntity() must live on the same connection —
+ * A temporal model and its temporalEntityRelation() must live on the same connection —
  * the writer locks and joins across the two in one transaction, which a
  * cross-connection relation cannot honour.
  *
@@ -23,12 +23,12 @@ final class BootGuardConnection implements BootGuard
 {
     public function check(Model $model): ?string
     {
-        if (! method_exists($model, 'temporalEntity')) {
+        if (! method_exists($model, 'temporalEntityRelation')) {
             return null;
         }
 
         try {
-            $relation = $model->temporalEntity();
+            $relation = $model->temporalEntityRelation();
         } catch (Throwable) {
             return null;
         }
@@ -52,7 +52,7 @@ final class BootGuardConnection implements BootGuard
         }
 
         return "temporal model uses connection '".($modelConnection ?? '[default]')
-            ."' but its temporalEntity() uses '".($entityConnection ?? '[default]')
+            ."' but its temporalEntityRelation() uses '".($entityConnection ?? '[default]')
             ."'; both sides must share one connection";
     }
 }

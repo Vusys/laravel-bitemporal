@@ -21,11 +21,11 @@ final class EntityScope
      */
     public static function resolve(Model $related, Model $entity): array
     {
-        if (! method_exists($related, 'temporalEntity')) {
-            throw new TemporalInvalidSpellException($related::class.' must define a temporalEntity() relation');
+        if (! method_exists($related, 'temporalEntityRelation')) {
+            throw new TemporalInvalidSpellException($related::class.' must declare a $temporalEntity model class or a temporalEntityRelation() method');
         }
 
-        $relation = $related->temporalEntity();
+        $relation = $related->temporalEntityRelation();
 
         if ($relation instanceof MorphTo) {
             return [
@@ -38,6 +38,6 @@ final class EntityScope
             return [$relation->getForeignKeyName() => $entity->getKey()];
         }
 
-        throw new TemporalInvalidSpellException('temporalEntity() must return a BelongsTo or MorphTo relation');
+        throw new TemporalInvalidSpellException('temporalEntityRelation() must return a BelongsTo or MorphTo relation');
     }
 }

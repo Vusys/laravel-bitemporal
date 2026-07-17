@@ -4,34 +4,25 @@ A temporal setup has two sides: the **entity** (the thing that persists — a `P
 
 ## The temporal model
 
-Add the `Bitemporal` trait and declare a `temporalEntity()` relation pointing back at the owner. That relation is the only required piece of configuration — the trait reads it to discover the foreign key.
+Add the `Bitemporal` trait and declare the entity it versions with the `$temporalEntity` class-string. That is the only required piece of configuration — the trait builds the `BelongsTo` and discovers the foreign key from it.
 
 ```php
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Vusys\Bitemporal\Bitemporal;
 
 class ProductPrice extends Model
 {
     use Bitemporal;
 
+    protected string $temporalEntity = Product::class;
+
     protected $guarded = [];
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
-
-    public function temporalEntity(): BelongsTo
-    {
-        return $this->belongsTo(Product::class, 'product_id');
-    }
 }
 ```
 
-!!! important
-    Name the foreign key explicitly. Because the relation method is
-    `temporalEntity()`, Eloquent would otherwise guess `temporal_entity_id`,
-    which does not match the `product_id` column `bitemporalForeignFor()` emits —
-    and writes would fail resolving the entity. Pass the column as the second
-    `belongsTo()` argument (`make:bitemporal-model` does this for you).
+The library derives the foreign key from the entity's natural key — `product_id` — which is exactly the column `bitemporalForeignFor()` emits in the migration, so the schema and the relation cannot drift. A polymorphic parent or a non-conventional foreign key cannot be named by a single class-string; those models drop the property and override `temporalEntityRelation()` instead (see [polymorphic entities](#polymorphic-entities)).
 
 You do **not** declare `$casts` for the period columns — the trait applies `immutable_datetime` casts to `valid_from`, `valid_to`, `recorded_from`, `recorded_to` and a boolean cast to `is_retraction` automatically. Disable that with `protected bool $autoApplyTemporalCasts = false;` if you need to manage casts yourself.
 
@@ -73,7 +64,7 @@ The relation factories:
 - `bitemporalMany($related, $foreignKey = null, $localKey = null)` — the timeline as a one-to-many. This is the relation you call the write API on.
 - `bitemporalOne($related, …)` — the single current/as-of row; `sole()` returns `null` when absent.
 - `bitemporalOneOrFail($related, …)` — same, but throws `TemporalCardinalityException` when absent.
-- `bitemporalMorphMany($related)` — for a temporal model whose `temporalEntity()` is a `MorphTo` (a single timeline table shared across many entity types). See [polymorphic entities](#polymorphic-entities).
+- `bitemporalMorphMany($related)` — for a temporal model whose `temporalEntityRelation()` is a `MorphTo` (a single timeline table shared across many entity types). See [polymorphic entities](#polymorphic-entities).
 
 ## Migrations
 
@@ -117,14 +108,14 @@ Macro reference:
 
 ### Polymorphic entities
 
-When one timeline table serves many entity types, make `temporalEntity()` a `MorphTo`, use `bitemporalMorphsFor()` in the migration, and `bitemporalMorphMany()` on each parent:
+When one timeline table serves many entity types, a single class-string can't name the parent — override `temporalEntityRelation()` to return a `MorphTo`, use `bitemporalMorphsFor()` in the migration, and `bitemporalMorphMany()` on each parent:
 
 ```php
 // migration
 $table->bitemporalMorphsFor('owner');          // owner_type, owner_id
 
-// temporal model
-public function temporalEntity(): MorphTo
+// temporal model — override instead of declaring $temporalEntity
+public function temporalEntityRelation(): MorphTo
 {
     return $this->morphTo('owner');
 }
@@ -150,7 +141,7 @@ php artisan make:bitemporal-migration create_product_prices_table --model=Produc
 php artisan make:bitemporal-factory ProductPriceFactory --model=ProductPrice
 ```
 
-- `make:bitemporal-model` scaffolds the trait, the `$dateFormat`, and a `BelongsTo` `temporalEntity()`.
+- `make:bitemporal-model` scaffolds the trait, the `$dateFormat`, and the `$temporalEntity` class-string.
 - `make:bitemporal-migration` scaffolds the migration pre-filled with the Blueprint macros above (add `--temporal-only` for an effective-dated-only table).
 - `make:bitemporal-factory` scaffolds a `BitemporalFactory` for tests (see [Testing](10-testing.md#factories)).
 

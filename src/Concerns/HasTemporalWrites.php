@@ -124,11 +124,11 @@ trait HasTemporalWrites
      */
     private function temporalEntityColumns(Model $related): array
     {
-        if (! method_exists($related, 'temporalEntity')) {
+        if (! method_exists($related, 'temporalEntityRelation')) {
             return [];
         }
 
-        $relation = $related->temporalEntity();
+        $relation = $related->temporalEntityRelation();
 
         if ($relation instanceof MorphTo) {
             return [$relation->getMorphType(), $relation->getForeignKeyName()];

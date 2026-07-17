@@ -13,7 +13,7 @@ use Vusys\Bitemporal\Tests\Fixtures\Models\Product;
 use Vusys\Bitemporal\Tests\Integration\IntegrationTestCase;
 
 /**
- * resolveTemporalForeignKey() must reject a temporalEntity() that is not a
+ * resolveTemporalForeignKey() must reject a temporalEntityRelation() that is not a
  * BelongsTo (MorphTo is a BelongsTo subclass, so it passes; a HasMany must not).
  *
  * Kills HasBitemporalRelations InstanceOf_ (!$relation instanceof BelongsTo ->
@@ -43,7 +43,7 @@ class HasManyTemporalFixture extends Model
     /**
      * @return HasMany<Product, $this>
      */
-    public function temporalEntity(): HasMany
+    public function temporalEntityRelation(): HasMany
     {
         return $this->hasMany(Product::class, 'id');
     }

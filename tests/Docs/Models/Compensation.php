@@ -6,14 +6,13 @@ namespace Vusys\Bitemporal\Tests\Docs\Models;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Vusys\Bitemporal\Bitemporal;
 
 /**
  * @property int $id
  * @property int $employee_id
  * @property string $component
- * @property string $annual_amount
+ * @property int $annual_amount
  * @property CarbonImmutable $valid_from
  * @property CarbonImmutable|null $valid_to
  * @property CarbonImmutable $recorded_from
@@ -29,6 +28,11 @@ class Compensation extends Model
      */
     protected array $temporalDimensions = ['component'];
 
+    // The entity this table versions. The library builds the BelongsTo on the
+    // natural `employee_id` key — the same column bitemporalForeignFor() emits —
+    // so schema and relation cannot drift.
+    protected string $temporalEntity = Employee::class;
+
     // The docs create a `compensations` table, but "compensation" is uncountable
     // in Laravel's inflector, so the model would otherwise resolve to the
     // singular `compensation`. Pin the table to match the migration.
@@ -36,14 +40,12 @@ class Compensation extends Model
 
     protected $guarded = [];
 
-    protected $dateFormat = 'Y-m-d H:i:s.u';
+    // annual_amount is a decimal column, so pgsql/mysql hand it back as a string
+    // ("5000.00"). Cast it so plain integer values round-trip and optimistic
+    // `expectedCurrentAttributes` checks compare like-for-like across drivers.
+    protected $casts = [
+        'annual_amount' => 'integer',
+    ];
 
-    /**
-     * @return BelongsTo<Employee, $this>
-     */
-    public function temporalEntity(): BelongsTo
-    {
-        // FK pinned to match the column bitemporalForeignFor() emits — see PolicyCoverage.
-        return $this->belongsTo(Employee::class, 'employee_id');
-    }
+    protected $dateFormat = 'Y-m-d H:i:s.u';
 }

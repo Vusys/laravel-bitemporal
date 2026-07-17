@@ -42,7 +42,7 @@ trait HasBitemporalRelations
     }
 
     /**
-     * A one-to-many relation to a model whose temporalEntity() is a MorphTo.
+     * A one-to-many relation to a model whose temporalEntityRelation() is a MorphTo.
      * Scopes by both the morph id (the foreign key) and the morph type.
      *
      * @template TRelated of Model
@@ -154,15 +154,15 @@ trait HasBitemporalRelations
 
     private function resolveTemporalForeignKey(Model $instance): string
     {
-        if (! method_exists($instance, 'temporalEntity')) {
+        if (! method_exists($instance, 'temporalEntityRelation')) {
             throw TemporalConfigurationException::missingTemporalEntity($instance::class);
         }
 
-        $relation = $instance->temporalEntity();
+        $relation = $instance->temporalEntityRelation();
 
         if (! $relation instanceof BelongsTo) {
             throw new TemporalConfigurationException(
-                'temporalEntity() must return a BelongsTo relation (MorphTo support arrives in Phase 8)',
+                'temporalEntityRelation() must return a BelongsTo relation (MorphTo support arrives in Phase 8)',
             );
         }
 
@@ -174,15 +174,15 @@ trait HasBitemporalRelations
      */
     private function resolveTemporalMorphTo(Model $instance): MorphTo
     {
-        if (! method_exists($instance, 'temporalEntity')) {
+        if (! method_exists($instance, 'temporalEntityRelation')) {
             throw TemporalConfigurationException::missingTemporalEntity($instance::class);
         }
 
-        $relation = $instance->temporalEntity();
+        $relation = $instance->temporalEntityRelation();
 
         if (! $relation instanceof MorphTo) {
             throw new TemporalConfigurationException(
-                'bitemporalMorphMany() requires the related model to define a MorphTo temporalEntity()',
+                'bitemporalMorphMany() requires the related model to define a MorphTo temporalEntityRelation()',
             );
         }
 

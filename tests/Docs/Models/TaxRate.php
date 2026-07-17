@@ -6,7 +6,6 @@ namespace Vusys\Bitemporal\Tests\Docs\Models;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Vusys\Bitemporal\Bitemporal;
 
 /**
@@ -29,16 +28,9 @@ class TaxRate extends Model
      */
     protected array $temporalDimensions = ['category'];
 
+    protected string $temporalEntity = TaxJurisdiction::class;
+
     protected $guarded = [];
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
-
-    /**
-     * @return BelongsTo<TaxJurisdiction, $this>
-     */
-    public function temporalEntity(): BelongsTo
-    {
-        // FK pinned to match the column bitemporalForeignFor() emits — see PolicyCoverage.
-        return $this->belongsTo(TaxJurisdiction::class, 'tax_jurisdiction_id');
-    }
 }

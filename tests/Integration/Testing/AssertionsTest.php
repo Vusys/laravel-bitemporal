@@ -117,7 +117,7 @@ final class AssertionsTest extends IntegrationTestCase
             function (): never {
                 throw TemporalConfigurationException::guardFailures(
                     'X',
-                    ['BootGuardRelationType' => 'temporalEntity() must return a BelongsTo or MorphTo relation'],
+                    ['BootGuardRelationType' => 'temporalEntityRelation() must return a BelongsTo or MorphTo relation'],
                 );
             },
         );

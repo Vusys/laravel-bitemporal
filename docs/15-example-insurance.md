@@ -10,20 +10,16 @@ A `Policy` is the entity; its `PolicyCoverage` is the versioned fact — the lim
 
 ```php
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Vusys\Bitemporal\Bitemporal;
 
 class PolicyCoverage extends Model
 {
     use Bitemporal;
 
+    protected string $temporalEntity = Policy::class;
+
     protected $guarded = [];
     protected $dateFormat = 'Y-m-d H:i:s.u';
-
-    public function temporalEntity(): BelongsTo
-    {
-        return $this->belongsTo(Policy::class, 'policy_id');
-    }
 }
 ```
 
