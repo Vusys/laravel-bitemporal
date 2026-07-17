@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Vusys\Bitemporal\Tests\Journey\Journeys;
+namespace Vusys\Bitemporal\Tests\Journey\Concerns;
 
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;

@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use PHPUnit\Framework\Assert;
 use Vusys\Bitemporal\Tests\Fixtures\Models\Product;
 use Vusys\Bitemporal\Tests\Fixtures\Models\ProductPriceWithDimensions;
+use Vusys\Bitemporal\Tests\Journey\Concerns\ExploresTimelines;
 use Vusys\Runabout\Context;
 use Vusys\Runabout\Invariant;
 use Vusys\Runabout\Journey;
