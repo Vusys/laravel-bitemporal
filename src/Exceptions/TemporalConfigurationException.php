@@ -8,7 +8,7 @@ final class TemporalConfigurationException extends TemporalException
 {
     public static function missingTemporalEntity(string $model): self
     {
-        return new self("temporal model {$model} must define a temporalEntity() relation");
+        return new self("temporal model {$model} must declare a \$temporalEntity model class or a temporalEntityRelation() method");
     }
 
     public static function unexpectedEntityArgument(string $given): self

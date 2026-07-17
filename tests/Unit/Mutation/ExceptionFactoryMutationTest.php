@@ -63,7 +63,7 @@ final class ExceptionFactoryMutationTest extends TestCase
         $exception = TemporalConfigurationException::missingTemporalEntity('Acme\\Price');
 
         $this->assertStringContainsString('Acme\\Price', $exception->getMessage());
-        $this->assertStringContainsString('temporalEntity() relation', $exception->getMessage());
+        $this->assertStringContainsString('temporalEntityRelation() method', $exception->getMessage());
     }
 
     public function test_btree_gist_missing_message(): void

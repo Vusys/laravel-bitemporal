@@ -10,22 +10,22 @@ An `Employee` is the entity; `Compensation` is the versioned fact. Pay is split 
 
 ```php
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Vusys\Bitemporal\Bitemporal;
 
 class Compensation extends Model
 {
     use Bitemporal;
 
+    protected string $temporalEntity = Employee::class;
+
     protected array $temporalDimensions = ['component'];
+
+    // "compensation" is uncountable, so Eloquent would infer the table as the
+    // singular `compensation`; pin it to match the migration.
+    protected $table = 'compensations';
 
     protected $guarded = [];
     protected $dateFormat = 'Y-m-d H:i:s.u';
-
-    public function temporalEntity(): BelongsTo
-    {
-        return $this->belongsTo(Employee::class);
-    }
 }
 ```
 

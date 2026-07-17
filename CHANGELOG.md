@@ -5,6 +5,36 @@ All notable changes to `vusys/laravel-bitemporal` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+A simpler entity declaration, plus worked-example correctness fixes surfaced by end-to-end tests of the four worked examples.
+
+### Changed
+- **BREAKING:** a temporal model now declares the entity it versions with a `$temporalEntity` class-string instead of a `temporalEntity()` relation method:
+
+  ```php
+  // before
+  public function temporalEntity(): BelongsTo
+  {
+      return $this->belongsTo(Product::class, 'product_id');
+  }
+
+  // after
+  protected string $temporalEntity = Product::class;
+  ```
+
+  The library builds the `BelongsTo` and derives the foreign key from the entity's natural key (`<entity>_id`) — the same column `bitemporalForeignFor()` emits — so the two can no longer drift, and the foreign key no longer has to be pinned by hand. Models with a polymorphic parent or a non-conventional foreign key override `temporalEntityRelation()` (returning a `BelongsTo` or `MorphTo`) instead of declaring the property. To migrate, replace each `temporalEntity()` method with the property, or rename it to `temporalEntityRelation()` where it returns a `MorphTo` or pins a custom key.
+
+### Fixed
+- `backfill()->timeline()` / `importHistoricalKnowledge()` now accept value columns supplied flat on each row (as `supersedeTimeline()` already does), not only nested under an `attributes` key.
+- `backfill()->timeline()` stamps the recorded axis as "now" for rows that omit `recorded_from`, instead of rejecting them — matching the documented behaviour for seeding a clean value history.
+
+### Documentation
+- Corrected the worked examples (insurance, salary, subscriptions, tax) and the model/writing/dimensions guides: adopted the `$temporalEntity` declaration, made value columns nullable where `retract()` is used, noted that a write replaces the whole value tuple, fixed a zero-length backfill spell, and pinned the `Compensation` table name.
+
+### Tested
+- Added a `Tests\Docs` suite that recreates all four worked examples end to end.
+
 ## [0.5.0] - 2026-07-16
 
 Bulk-load ergonomics.

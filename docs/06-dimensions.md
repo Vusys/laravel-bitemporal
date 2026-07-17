@@ -11,12 +11,9 @@ class ProductPrice extends Model
 {
     use Bitemporal;
 
-    protected array $temporalDimensions = ['currency'];
+    protected string $temporalEntity = Product::class;
 
-    public function temporalEntity(): BelongsTo
-    {
-        return $this->belongsTo(Product::class);
-    }
+    protected array $temporalDimensions = ['currency'];
 }
 ```
 

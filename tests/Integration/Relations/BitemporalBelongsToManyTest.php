@@ -118,7 +118,7 @@ final class BitemporalBelongsToManyTest extends IntegrationTestCase
     public function test_pivot_model_boots_without_a_temporal_entity(): void
     {
         // Instantiating the pivot triggers the boot guards; the Pivot exemption
-        // means it must not throw despite having no temporalEntity().
+        // means it must not throw despite having no temporalEntityRelation().
         $assignment = new UserRoleAssignment;
 
         $this->assertInstanceOf(UserRoleAssignment::class, $assignment);

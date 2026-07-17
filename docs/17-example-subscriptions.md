@@ -13,15 +13,12 @@ class Subscription extends Model
 {
     use Bitemporal;
 
+    protected string $temporalEntity = Account::class;
+
     protected array $temporalDimensions = ['region'];
 
     protected $guarded = [];
     protected $dateFormat = 'Y-m-d H:i:s.u';
-
-    public function temporalEntity(): BelongsTo
-    {
-        return $this->belongsTo(Account::class);
-    }
 }
 ```
 

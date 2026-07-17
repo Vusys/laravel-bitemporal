@@ -251,11 +251,11 @@ class BitemporalBuilder extends Builder
     {
         $model = $this->getModel();
 
-        if (! method_exists($model, 'temporalEntity')) {
+        if (! method_exists($model, 'temporalEntityRelation')) {
             throw TemporalConfigurationException::missingTemporalEntity($model::class);
         }
 
-        $relation = $model->temporalEntity();
+        $relation = $model->temporalEntityRelation();
 
         if ($relation instanceof MorphTo) {
             return ['type' => $relation->getMorphType(), 'id' => $relation->getForeignKeyName()];
@@ -266,7 +266,7 @@ class BitemporalBuilder extends Builder
         }
 
         throw new TemporalConfigurationException(
-            'temporalEntity() must return a BelongsTo or MorphTo relation',
+            'temporalEntityRelation() must return a BelongsTo or MorphTo relation',
         );
     }
 }

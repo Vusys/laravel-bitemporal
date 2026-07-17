@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Vusys\Bitemporal\Console\Commands;
 
 use Illuminate\Console\GeneratorCommand;
+use Illuminate\Support\Str;
 use Symfony\Component\Console\Input\InputOption;
 
 /**
  * Generates a temporal Eloquent model wired with the Bitemporal trait and a
- * temporalEntity() BelongsTo relation.
+ * $temporalEntity class-string declaring the entity it versions.
  */
 final class MakeBitemporalModelCommand extends GeneratorCommand
 {
@@ -37,8 +38,18 @@ final class MakeBitemporalModelCommand extends GeneratorCommand
 
         $entity = $this->option('entity');
         $entity = is_string($entity) && $entity !== '' ? $entity : 'Model';
+        $entity = class_basename($entity);
 
-        return str_replace('{{ entity }}', class_basename($entity), $stub);
+        // The natural key the library derives from the entity class and that
+        // bitemporalForeignFor() emits (<entity>_id) — referenced in the stub's
+        // doc comment so the generated model documents its own foreign key.
+        $foreignKey = Str::snake($entity).'_id';
+
+        return str_replace(
+            ['{{ entity }}', '{{ foreignKey }}'],
+            [$entity, $foreignKey],
+            $stub,
+        );
     }
 
     /**

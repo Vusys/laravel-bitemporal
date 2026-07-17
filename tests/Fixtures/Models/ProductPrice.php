@@ -58,7 +58,7 @@ class ProductPrice extends Model
     /**
      * @return BelongsTo<Product, $this>
      */
-    public function temporalEntity(): BelongsTo
+    public function temporalEntityRelation(): BelongsTo
     {
         return $this->product();
     }

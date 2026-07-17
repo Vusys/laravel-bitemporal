@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Generates a migration for a temporal table: bitemporalForeignFor() for the
@@ -80,15 +81,20 @@ final class MakeBitemporalMigrationCommand extends Command
         $entityColumns = ['entity_id'];
         $entityClass = 'Model';
 
-        if (method_exists($instance, 'temporalEntity')) {
-            $relation = $instance->temporalEntity();
+        // A model that has not declared its entity yet (no $temporalEntity and no
+        // override) throws from temporalEntityRelation(); scaffold the default
+        // entity column rather than fail the generator.
+        try {
+            $relation = method_exists($instance, 'temporalEntityRelation') ? $instance->temporalEntityRelation() : null;
+        } catch (Throwable) {
+            $relation = null;
+        }
 
-            if ($relation instanceof MorphTo) {
-                $entityColumns = [$relation->getMorphType(), $relation->getForeignKeyName()];
-            } elseif ($relation instanceof BelongsTo) {
-                $entityColumns = [$relation->getForeignKeyName()];
-                $entityClass = class_basename($relation->getRelated());
-            }
+        if ($relation instanceof MorphTo) {
+            $entityColumns = [$relation->getMorphType(), $relation->getForeignKeyName()];
+        } elseif ($relation instanceof BelongsTo) {
+            $entityColumns = [$relation->getForeignKeyName()];
+            $entityClass = class_basename($relation->getRelated());
         }
 
         $dimensions = method_exists($instance, 'temporalDimensions') ? $instance->temporalDimensions() : [];

@@ -69,8 +69,8 @@ final class DiffTimelinesCommand extends Command
 
     private function foreignKey(Model $model): string
     {
-        if (method_exists($model, 'temporalEntity')) {
-            $relation = $model->temporalEntity();
+        if (method_exists($model, 'temporalEntityRelation')) {
+            $relation = $model->temporalEntityRelation();
 
             if ($relation instanceof MorphTo || $relation instanceof BelongsTo) {
                 return $relation->getForeignKeyName();

@@ -10,20 +10,16 @@ A `Policy` is the entity; its `PolicyCoverage` is the versioned fact — the lim
 
 ```php
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Vusys\Bitemporal\Bitemporal;
 
 class PolicyCoverage extends Model
 {
     use Bitemporal;
 
+    protected string $temporalEntity = Policy::class;
+
     protected $guarded = [];
     protected $dateFormat = 'Y-m-d H:i:s.u';
-
-    public function temporalEntity(): BelongsTo
-    {
-        return $this->belongsTo(Policy::class);
-    }
 }
 ```
 
@@ -50,9 +46,10 @@ Schema::create('policy_coverages', function (Blueprint $table) {
     $table->id();
     $table->bitemporalForeignFor(Policy::class);   // policy_id, FK, restrictOnDelete
 
-    $table->decimal('limit', 12, 2);
-    $table->decimal('deductible', 10, 2);
-    $table->decimal('premium', 10, 2);
+    // Nullable so retract() can insert an anti-row (all value columns NULL).
+    $table->decimal('limit', 12, 2)->nullable();
+    $table->decimal('deductible', 10, 2)->nullable();
+    $table->decimal('premium', 10, 2)->nullable();
 
     $table->bitemporalPeriods();                    // valid_* + recorded_* (µs) + is_retraction
     $table->timestamps();
@@ -91,9 +88,11 @@ Recording *which belief* the payout was based on is the whole point. When the fi
 
 In April the broker confirms the customer had bought an endorsement raising the limit to £500,000, effective all the way back to inception. This is not a change from today — it is a fix to what was *always* true. `correct()` rewrites the value over a historical window while preserving the superseded row in recorded history.
 
+A write replaces the whole value tuple, so we repeat `deductible` and `premium` — omitting them would blank those columns (see [Writing](05-writing.md#change-vs-correct)):
+
 ```php
 $policy->coverages()->correct(
-    attributes: ['limit' => 500_000],
+    attributes: ['limit' => 500_000, 'deductible' => 500, 'premium' => 1_200],
     validFrom: '2026-01-01',    // the higher limit applied from inception
 );
 ```

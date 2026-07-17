@@ -5,24 +5,23 @@ declare(strict_types=1);
 namespace {{ namespace }};
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Vusys\Bitemporal\Bitemporal;
 
 class {{ class }} extends Model
 {
     use Bitemporal;
 
+    /**
+     * The entity this temporal model versions. The library builds a BelongsTo on
+     * the natural `{{ foreignKey }}` key — the same column bitemporalForeignFor()
+     * emits — so the schema and the relation cannot drift.
+     *
+     * For a polymorphic parent or a non-conventional foreign key, drop this
+     * property and override temporalEntityRelation() to return the relation.
+     */
+    protected string $temporalEntity = {{ entity }}::class;
+
     protected $guarded = [];
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
-
-    /**
-     * The entity this temporal model belongs to.
-     *
-     * @return BelongsTo<{{ entity }}, $this>
-     */
-    public function temporalEntity(): BelongsTo
-    {
-        return $this->belongsTo({{ entity }}::class);
-    }
 }

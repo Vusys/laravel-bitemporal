@@ -13,15 +13,12 @@ class TaxRate extends Model
 {
     use Bitemporal;
 
+    protected string $temporalEntity = TaxJurisdiction::class;
+
     protected array $temporalDimensions = ['category'];
 
     protected $guarded = [];
     protected $dateFormat = 'Y-m-d H:i:s.u';
-
-    public function temporalEntity(): BelongsTo
-    {
-        return $this->belongsTo(TaxJurisdiction::class);
-    }
 }
 ```
 
@@ -118,7 +115,7 @@ $jurisdiction->rates()
     ->forDimensions(['category' => 'standard'])
     ->backfill()
     ->timeline([
-        ['rate' => 0.1750, 'valid_from' => '2011-01-04', 'valid_to' => '2011-01-04'],
+        ['rate' => 0.1750, 'valid_from' => '2010-01-01', 'valid_to' => '2011-01-04'],
         ['rate' => 0.2000, 'valid_from' => '2011-01-04', 'valid_to' => '2026-04-06'],
     ]);
 

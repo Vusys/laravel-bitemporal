@@ -6,7 +6,7 @@ A bitemporal pivot models a **many-to-many assignment that is itself a timeline*
 
 ## The pivot model
 
-The pivot extends Laravel's `Pivot` and adds the `Bitemporal` trait. It does **not** declare a `temporalEntity()` relation — its entity is the composite `(parent, related)` tuple, which the relation injects at resolution time. (The relation-type boot guard exempts `Pivot` models for exactly this reason.)
+The pivot extends Laravel's `Pivot` and adds the `Bitemporal` trait. It does **not** declare a `$temporalEntity` — its entity is the injected composite `(parent, related)` tuple, which the relation supplies at resolution time. (The relation-type boot guard exempts `Pivot` models for exactly this reason.)
 
 ```php
 use Illuminate\Database\Eloquent\Relations\Pivot;

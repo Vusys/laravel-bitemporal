@@ -102,11 +102,11 @@ final class TemporalAuditLogSubscriber
     {
         $instance = new $model;
 
-        if (! method_exists($instance, 'temporalEntity')) {
+        if (! method_exists($instance, 'temporalEntityRelation')) {
             return null;
         }
 
-        return $instance->temporalEntity() instanceof MorphTo ? $entity->getMorphClass() : null;
+        return $instance->temporalEntityRelation() instanceof MorphTo ? $entity->getMorphClass() : null;
     }
 
     private function connection(): ?string

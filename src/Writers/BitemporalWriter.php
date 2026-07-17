@@ -68,7 +68,7 @@ final readonly class BitemporalWriter
 
     /**
      * @param  array<string, mixed>  $dimensions
-     * @param  array<string, mixed>|null  $entityScope  explicit entity scope (pivots inject {parent_fk => id}); resolved from temporalEntity() when null
+     * @param  array<string, mixed>|null  $entityScope  explicit entity scope (pivots inject {parent_fk => id}); resolved from temporalEntityRelation() when null
      * @param  array<int, string>  $extraDimensionColumns  columns folded into the dimension tuple beyond the model's declared dimensions
      */
     public function __construct(
@@ -428,11 +428,11 @@ final readonly class BitemporalWriter
 
     private function idempotencyEntityType(): ?string
     {
-        if (! method_exists($this->related, 'temporalEntity')) {
+        if (! method_exists($this->related, 'temporalEntityRelation')) {
             return null;
         }
 
-        return $this->related->temporalEntity() instanceof MorphTo
+        return $this->related->temporalEntityRelation() instanceof MorphTo
             ? $this->entity->getMorphClass()
             : null;
     }

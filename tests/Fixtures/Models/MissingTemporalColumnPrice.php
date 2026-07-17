@@ -27,7 +27,7 @@ class MissingTemporalColumnPrice extends Model
     /**
      * @return BelongsTo<Product, $this>
      */
-    public function temporalEntity(): BelongsTo
+    public function temporalEntityRelation(): BelongsTo
     {
         return $this->belongsTo(Product::class);
     }
