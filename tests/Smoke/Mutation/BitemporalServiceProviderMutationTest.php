@@ -162,19 +162,28 @@ final class BitemporalServiceProviderMutationTest extends TestCase
         $this->assertCount(1, $matches, 'the prune-idempotency-keys command should be scheduled daily');
     }
 
-    public function test_job_processing_listener_resets_the_lens_stack(): void
+    public function test_job_processing_listener_preserves_an_open_outer_frame(): void
     {
         $job = Mockery::mock(Job::class);
         $job->shouldIgnoreMissing();
         $this->assertInstanceOf(Job::class, $job);
 
+        // A job dispatched synchronously inside an asOf() callback must keep the
+        // caller's still-open outer frame (issue #72). If the JobProcessing
+        // listener were not wired, no job-turn baseline would be recorded and the
+        // JobProcessed listener below would throw on the "leaked" frame instead
+        // of passing — so this also pins the JobProcessing registration.
         TemporalLens::asOf('2026-01-01', null, function () use ($job): void {
             $this->assertSame(1, TemporalLens::depth());
 
             event(new JobProcessing('sync', $job));
+            $this->assertSame(1, TemporalLens::depth());
 
-            $this->assertSame(0, TemporalLens::depth());
+            event(new JobProcessed('sync', $job));
+            $this->assertSame(1, TemporalLens::depth());
         });
+
+        $this->assertSame(0, TemporalLens::depth());
     }
 
     public function test_job_processed_listener_asserts_the_lens_stack_is_empty(): void
@@ -187,8 +196,8 @@ final class BitemporalServiceProviderMutationTest extends TestCase
 
         try {
             TemporalLens::asOf('2026-01-01', null, function () use ($job): void {
-                // A frame is still open here, so the JobProcessed listener's
-                // assertEmpty() must throw.
+                // A frame is still open here with no matching JobProcessing turn,
+                // so the JobProcessed listener trims it and throws.
                 event(new JobProcessed('sync', $job));
             });
         } finally {

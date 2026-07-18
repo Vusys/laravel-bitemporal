@@ -109,20 +109,30 @@ final class OctaneLifecycleTest extends TestCase
         $this->assertSame(0, $stack->depth());
     }
 
-    public function test_job_boundary_resets_asserts_and_survives_a_failed_job(): void
+    public function test_job_boundary_trims_leaks_asserts_and_survives_a_failed_job(): void
     {
         $stack = $this->stack();
 
-        // A frame leaked from a prior job is cleared before the next runs.
-        $this->leakFrame($stack);
+        // A frame leaked within a job turn is trimmed at the JobProcessed
+        // boundary and surfaced, so it cannot cascade into the next job.
         $this->dispatcher()->dispatch(new JobProcessing('sync', $this->fakeJob()));
+        $this->leakFrame($stack);
+        try {
+            $this->dispatcher()->dispatch(new JobProcessed('sync', $this->fakeJob()));
+            $this->fail('JobProcessed should have thrown on a leaked frame');
+        } catch (TemporalConfigurationException) {
+            // expected
+        }
         $this->assertSame(0, $stack->depth());
 
         // A clean job passes the post-boundary assertion.
+        $this->dispatcher()->dispatch(new JobProcessing('sync', $this->fakeJob()));
         $this->dispatcher()->dispatch(new JobProcessed('sync', $this->fakeJob()));
+        $this->assertSame(0, $stack->depth());
 
-        // A failed job with a leaked frame is caught at the JobFailed boundary,
-        // and the next job's JobProcessing resets so it does not cascade.
+        // A failed job with a leaked frame is caught at the JobFailed boundary
+        // and trimmed, so the next job starts clean.
+        $this->dispatcher()->dispatch(new JobProcessing('sync', $this->fakeJob()));
         $this->leakFrame($stack);
         try {
             $this->dispatcher()->dispatch(new JobFailed('sync', $this->fakeJob(), new \RuntimeException('boom')));
@@ -130,8 +140,6 @@ final class OctaneLifecycleTest extends TestCase
         } catch (TemporalConfigurationException) {
             // expected
         }
-
-        $this->dispatcher()->dispatch(new JobProcessing('sync', $this->fakeJob()));
         $this->assertSame(0, $stack->depth());
     }
 
