@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Vusys\Bitemporal\Tests\Integration\Writes\Mutation;
 
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterval;
 use Illuminate\Support\Facades\DB;
 use Vusys\Bitemporal\Exceptions\TemporalWriteConflictException;
 use Vusys\Bitemporal\Idempotency\IdempotencyStore;
@@ -44,7 +45,7 @@ final class IdempotencyStoreMutationTest extends IntegrationTestCase
         // @phpstan-ignore-next-line — intentionally storing a loose snapshot.
         $store->store($connection, 'M', null, $entityId, $key, 'correct', $hash, $snapshot);
 
-        return $store->find($connection, 'M', null, $entityId, $key, $hash, '1 day');
+        return $store->find($connection, 'M', null, $entityId, $key, $hash, CarbonInterval::day());
     }
 
     public function test_canonical_hash_is_order_independent(): void
@@ -140,6 +141,6 @@ final class IdempotencyStoreMutationTest extends IntegrationTestCase
 
         $this->expectException(TemporalWriteConflictException::class);
 
-        $this->store()->find($connection, 'M', null, $entityId, 'k', $hash, '1 day');
+        $this->store()->find($connection, 'M', null, $entityId, 'k', $hash, CarbonInterval::day());
     }
 }

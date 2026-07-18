@@ -6,6 +6,7 @@ namespace Vusys\Bitemporal\Writers;
 
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Carbon\CarbonInterval;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -34,6 +35,7 @@ use Vusys\Bitemporal\Exceptions\TemporalMissingDimensionException;
 use Vusys\Bitemporal\Exceptions\TemporalOverlapException;
 use Vusys\Bitemporal\Exceptions\TemporalWriteConflictException;
 use Vusys\Bitemporal\Idempotency\IdempotencyStore;
+use Vusys\Bitemporal\Idempotency\IdempotencyWindow;
 use Vusys\Bitemporal\Locking\WriteLocker;
 use Vusys\Bitemporal\Locking\WriteLockHandle;
 use Vusys\Bitemporal\Observability\NullMetrics;
@@ -492,11 +494,9 @@ final readonly class BitemporalWriter
         return new IdempotencyStore;
     }
 
-    private function idempotencyWindow(): string
+    private function idempotencyWindow(): CarbonInterval
     {
-        $window = config('bitemporal.writes.idempotency_window', '7 days');
-
-        return is_string($window) ? $window : '7 days';
+        return IdempotencyWindow::resolve();
     }
 
     /**
