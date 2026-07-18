@@ -1,0 +1,101 @@
+name: journeys-nightly
+
+# High-shuffle journey exploration across the database matrix. The day suite
+# runs journeys at 25 shuffles per PR; this job cranks JOURNEY_SHUFFLES far
+# higher and, with RUNABOUT_RANDOMIZE=1, explores fresh seeds every night so
+# rare orderings surface over time. A failure prints the shrunk trail and a
+# RUNABOUT_SEED / RUNABOUT_TRAIL replay line for a deterministic local repro.
+
+on:
+  schedule:
+    # 03:17 UTC daily — an off-the-hour minute to dodge scheduler congestion.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      shuffles:
+        description: 'Shuffles per journey'
+        required: false
+        default: '500'
+
+permissions:
+  contents: read
+
+jobs:
+  journeys:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [sqlite, mysql, mariadb, pgsql]
+
+    name: journeys · ${{ matrix.db }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Start ${{ matrix.db }}
+        if: matrix.db != 'sqlite'
+        run: |
+          case "${{ matrix.db }}" in
+            mysql)
+              docker run -d --name db -p 127.0.0.1:33306:3306 \
+                -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -e MYSQL_DATABASE=testing \
+                --health-cmd="mysqladmin ping" --health-interval=10s \
+                --health-timeout=5s --health-retries=5 mysql:8.0
+              ;;
+            mariadb)
+              docker run -d --name db -p 127.0.0.1:33306:3306 \
+                -e MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=yes -e MARIADB_DATABASE=testing \
+                --health-cmd="healthcheck.sh --connect --innodb_initialized" \
+                --health-interval=10s --health-timeout=5s --health-retries=5 mariadb:10.11
+              ;;
+            pgsql)
+              docker run -d --name db -p 127.0.0.1:54320:5432 \
+                -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=testing \
+                --health-cmd=pg_isready --health-interval=10s \
+                --health-timeout=5s --health-retries=5 postgres:16
+              ;;
+          esac
+
+      - name: Wait for ${{ matrix.db }} to be healthy
+        if: matrix.db != 'sqlite'
+        run: |
+          for i in $(seq 1 30); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' db 2>/dev/null || echo missing)
+            if [ "$status" = "healthy" ]; then
+              echo "db is healthy"
+              exit 0
+            fi
+            echo "waiting for db (status: $status)..."
+            sleep 2
+          done
+          echo "db failed to become healthy"
+          docker logs db || true
+          exit 1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: dom, curl, libxml, mbstring, pdo, pdo_sqlite, pdo_mysql, pdo_pgsql, bcmath
+          coverage: none
+
+      - name: Install dependencies
+        run: |
+          composer config policy.advisories.block false
+          composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Run journeys (${{ matrix.db }})
+        run: vendor/bin/phpunit --group journey
+        env:
+          JOURNEY_SHUFFLES: ${{ github.event.inputs.shuffles || '500' }}
+          # Explore fresh seeds each run; a failure still prints its seed to replay.
+          RUNABOUT_RANDOMIZE: '1'
+          # Print a per-journey trail-coverage summary (orderings explored / missed).
+          RUNABOUT_COVERAGE: '1'
+          DB_CONNECTION: ${{ matrix.db }}
+          DB_HOST: 127.0.0.1
+          DB_DATABASE: testing
+          DB_PORT: ${{ matrix.db == 'pgsql' && '54320' || '33306' }}
+          DB_USERNAME: ${{ matrix.db == 'pgsql' && 'postgres' || 'root' }}
+          DB_PASSWORD: ${{ matrix.db == 'pgsql' && 'postgres' || '' }}
