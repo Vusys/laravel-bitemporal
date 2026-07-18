@@ -73,7 +73,12 @@ final class IdempotencyStore
      */
     public function store(ConnectionInterface $connection, string $model, ?string $entityType, string $entityId, string $key, string $operation, string $hash, array $snapshot): void
     {
-        $connection->table(self::TABLE)->insert([
+        // insertOrIgnore, not insert: the write path already serializes same-key
+        // requests on the write lock, but a lock-free strategy (or a racing
+        // retry) could still reach this with the key already claimed. Swallow the
+        // duplicate at the unique index rather than surfacing a raw QueryException
+        // after the timeline has been mutated.
+        $connection->table(self::TABLE)->insertOrIgnore([
             'key' => $key,
             'model' => $model,
             'entity_type' => $entityType,
