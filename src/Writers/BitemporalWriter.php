@@ -935,7 +935,7 @@ final readonly class BitemporalWriter
      */
     private function releaseQuietly(?WriteLockHandle $handle): void
     {
-        if ($handle === null) {
+        if (! $handle instanceof WriteLockHandle) {
             return;
         }
 
