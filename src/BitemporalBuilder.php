@@ -158,6 +158,15 @@ class BitemporalBuilder extends Builder
             $byType[$context->type][] = $context->id;
         }
 
+        // An empty set must match nothing. Without this guard the nested where
+        // below adds no clauses, Laravel drops the empty group, and the query
+        // is left unconstrained — leaking every row. Mirror the whereIn([]) path.
+        if ($byType === []) {
+            $this->whereRaw('0 = 1');
+
+            return $this;
+        }
+
         $typeColumn = $this->qualify($columns['type']);
         $idColumn = $this->qualify($columns['id']);
 

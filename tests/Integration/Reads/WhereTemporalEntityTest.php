@@ -57,6 +57,14 @@ final class WhereTemporalEntityTest extends IntegrationTestCase
         $this->assertCount(1, ProductPrice::query()->whereTemporalEntityIn([$a->getKey()])->get());
     }
 
+    public function test_where_temporal_entity_in_with_an_empty_set_matches_nothing(): void
+    {
+        $a = $this->makeProduct('A');
+        $this->insertPrice($a, ['amount' => 1000, 'valid_from' => '2026-01-01', 'valid_to' => null]);
+
+        $this->assertCount(0, ProductPrice::query()->whereTemporalEntityIn([])->get());
+    }
+
     public function test_where_temporal_entity_in_rejects_unexpected_values(): void
     {
         $this->expectException(TemporalConfigurationException::class);
