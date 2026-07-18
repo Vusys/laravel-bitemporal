@@ -39,4 +39,30 @@ final class BitemporalOneDeterminismTest extends IntegrationTestCase
 
         $this->assertSame(1200, $loaded?->price?->amount);
     }
+
+    public function test_open_ended_row_wins_a_valid_from_tie_over_a_higher_key_bounded_row(): void
+    {
+        $product = $this->makeProduct();
+
+        // Both rows share valid_from (and recorded_from). The bounded row is
+        // inserted last so it holds the higher key; before issue #74 the key
+        // tie-break handed it the win. The open-ended row must win instead.
+        $this->insertPrice($product, ['amount' => 1000, 'valid_from' => '2026-01-01', 'valid_to' => null]);
+        $this->insertPrice($product, ['amount' => 900, 'valid_from' => '2026-01-01', 'valid_to' => '2026-06-01']);
+
+        $this->assertSame(1000, $product->price()->getResults()?->amount);
+        $this->assertSame(1000, $product->fresh()?->price?->amount);
+    }
+
+    public function test_later_valid_to_wins_a_valid_from_tie_when_neither_row_is_open_ended(): void
+    {
+        $product = $this->makeProduct();
+
+        // Neither row is open-ended; the later valid_to is the more-current
+        // valid period and must win regardless of key order.
+        $this->insertPrice($product, ['amount' => 1000, 'valid_from' => '2026-01-01', 'valid_to' => '2026-12-01']);
+        $this->insertPrice($product, ['amount' => 900, 'valid_from' => '2026-01-01', 'valid_to' => '2026-06-01']);
+
+        $this->assertSame(1000, $product->price()->getResults()?->amount);
+    }
 }
