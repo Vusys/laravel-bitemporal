@@ -83,6 +83,48 @@ final class StreamingBackfillTest extends IntegrationTestCase
         }
     }
 
+    public function test_post_audit_catches_a_cross_chunk_overlap_among_closed_rows(): void
+    {
+        CarbonImmutable::setTestNow('2026-01-01 00:00:00');
+        $product = $this->makeProduct();
+
+        // Two closed-recorded rows (recorded_to set), one per chunk, that collide
+        // on BOTH axes: overlapping valid periods AND overlapping recorded
+        // periods. The old audit only loaded whereNull(recorded_to) rows on the
+        // valid axis, so it never saw these — issue #47.
+        $rows = [
+            ['attributes' => ['amount' => 1], 'valid_from' => '2020-01-01', 'valid_to' => '2020-02-01', 'recorded_from' => '2019-01-01', 'recorded_to' => '2020-06-01'],
+            ['attributes' => ['amount' => 2], 'valid_from' => '2020-01-15', 'valid_to' => '2020-03-01', 'recorded_from' => '2019-01-01', 'recorded_to' => '2020-06-01'],
+        ];
+
+        try {
+            $product->prices()->backfill()->stream(chunkSize: 1)->importHistoricalKnowledge($rows);
+            $this->fail('the post-audit should have detected the closed-row bitemporal overlap');
+        } catch (TemporalOverlapException $exception) {
+            $this->assertCount(2, $exception->getInsertedIds());
+            $this->assertSame(2, ProductPrice::query()->count());
+        }
+    }
+
+    public function test_post_audit_allows_superseded_beliefs_on_the_same_valid_window(): void
+    {
+        CarbonImmutable::setTestNow('2026-01-01 00:00:00');
+        $product = $this->makeProduct();
+
+        // Same valid window but disjoint recorded periods: a superseded belief
+        // followed by the current one. This is legitimate bitemporal history and
+        // must NOT be flagged — the audit tests both axes, not valid alone.
+        $rows = [
+            ['attributes' => ['amount' => 1], 'valid_from' => '2020-01-01', 'valid_to' => '2020-02-01', 'recorded_from' => '2019-01-01', 'recorded_to' => '2020-01-01'],
+            ['attributes' => ['amount' => 2], 'valid_from' => '2020-01-01', 'valid_to' => '2020-02-01', 'recorded_from' => '2020-01-01', 'recorded_to' => null],
+        ];
+
+        $committed = $product->prices()->backfill()->stream(chunkSize: 1)->importHistoricalKnowledge($rows);
+
+        $this->assertSame(2, $committed->insertedCount());
+        $this->assertSame(2, ProductPrice::query()->count());
+    }
+
     public function test_post_audit_can_be_disabled(): void
     {
         config(['bitemporal.backfill.post_audit_check' => false]);
