@@ -77,7 +77,17 @@ final class PostgresSpellCast implements CastsAttributes
             $value = str_replace('""', '"', $value);
         }
 
-        return $value === '' ? null : CarbonImmutable::parse($value);
+        // A tstzrange bound written with the literal infinity / -infinity — legal
+        // Postgres, common when the table is populated by hand-written SQL,
+        // migrations, or another application — is the same "unbounded" concept
+        // the package already represents as null. Map it there rather than
+        // letting CarbonImmutable::parse() throw an InvalidFormatException
+        // (issue #70). Case-insensitive; any surrounding quotes are stripped above.
+        if ($value === '' || in_array(strtolower($value), ['infinity', '-infinity', '+infinity'], true)) {
+            return null;
+        }
+
+        return CarbonImmutable::parse($value);
     }
 
     private function format(Spell $spell): string
