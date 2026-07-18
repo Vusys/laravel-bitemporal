@@ -21,6 +21,7 @@ use Vusys\Bitemporal\Console\Commands\MakeBitemporalModelCommand;
 use Vusys\Bitemporal\Console\Commands\PruneIdempotencyKeysCommand;
 use Vusys\Bitemporal\Console\Commands\WarmGuardsCommand;
 use Vusys\Bitemporal\Database\TemporalBlueprintMacros;
+use Vusys\Bitemporal\Exceptions\TemporalConfigurationException;
 use Vusys\Bitemporal\Lens\AsOfJobListener;
 use Vusys\Bitemporal\Lens\AsOfOctaneListener;
 use Vusys\Bitemporal\Lens\LensStack;
@@ -59,8 +60,24 @@ final class BitemporalServiceProvider extends ServiceProvider
         $this->app->bindIf(TemporalMetrics::class, NullMetrics::class);
     }
 
+    /**
+     * The native-range layout (tstzrange columns + EXCLUDE constraint) is wired
+     * end-to-end for writes and overlap prevention, but the read predicates still
+     * target the scalar period columns. Rather than silently ignore the opt-in
+     * flag and let reads fail with a cryptic "column valid_from does not exist",
+     * fail fast with an explanatory error.
+     */
+    public static function guardNativeRangePreference(): void
+    {
+        if (config('bitemporal.database.prefer_native_ranges', false) === true) {
+            throw TemporalConfigurationException::nativeRangesUnsupported();
+        }
+    }
+
     public function boot(): void
     {
+        self::guardNativeRangePreference();
+
         TemporalBlueprintMacros::register();
 
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');

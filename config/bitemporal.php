@@ -49,6 +49,11 @@ return [
         // Opt in to PostgreSQL native range columns (tstzrange) + a
         // database-enforced EXCLUDE USING gist overlap constraint. PG only;
         // the composite-index path stays the default everywhere else.
+        //
+        // NOT YET SUPPORTED for reads: the DDL macros and write path handle
+        // range columns, but the temporal read predicates still target the
+        // scalar valid_from/valid_to columns. Enabling this throws at boot until
+        // range-aware reads land — keep it false. See issue #40.
         'prefer_native_ranges' => false,
 
         // Whether the EnableBitemporalExtensions migration may run
