@@ -7,6 +7,7 @@ namespace Vusys\Bitemporal\Relations;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Query\Expression;
 use Vusys\Bitemporal\Concerns\HasTemporalWrites;
 use Vusys\Bitemporal\Exceptions\TemporalCardinalityException;
 
@@ -89,6 +90,17 @@ class BitemporalOne extends HasOne
         $table = $model->getTable();
 
         $this->query->orderBy($table.'.'.$meta->validFrom, 'desc');
+
+        // Break a valid_from tie toward the more-current valid period: an
+        // open-ended row (valid_to IS NULL) wins, then the one with the latest
+        // valid_to. Without this, two rows sharing valid_from fall straight
+        // through to the key, so the bounded row could outrank the open-ended
+        // row the relation advertises. Portable across SQLite/MySQL/PostgreSQL:
+        // (col IS NULL) yields 1/0 (true/false on PG), so DESC lists NULLs first.
+        $validTo = $this->query->getQuery()->getGrammar()->wrap($table.'.'.$meta->validTo);
+        // @phpstan-ignore argument.type ($validTo is a grammar-wrapped column identifier, not user input)
+        $this->query->orderBy(new Expression("({$validTo} is null)"), 'desc');
+        $this->query->orderBy($table.'.'.$meta->validTo, 'desc');
 
         if ($meta->tracksRecordedTime) {
             $this->query->orderBy($table.'.'.$meta->recordedFrom, 'desc');
