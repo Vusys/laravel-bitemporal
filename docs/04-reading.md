@@ -26,6 +26,18 @@ $price = $product->prices()
 
 `knownAt()` and `currentKnowledge()` throw `TemporalConfigurationException` on a model that does not track recorded time.
 
+> **Retractions are included by default.** A [retraction](01-concepts.md#anti-rows-retractions) is an anti-row: a real valid period that asserts "nothing was ever true here", with every value column `NULL`. `validAt()`, `knownAt()` and `currentKnowledge()` all match anti-rows, so a retracted window reads back as **present but null**, not absent. Whenever you read domain values and want a retracted window to read as empty, chain [`excludeRetractions()`](#spell-predicates):
+>
+> ```php
+> $price = $product->prices()
+>     ->validAt($invoice->issued_at)
+>     ->currentKnowledge()
+>     ->excludeRetractions()   // a retracted window now yields no row
+>     ->first();
+> ```
+>
+> The default is deliberate: diffs, timeline materialisation and the writer's own supersession pass all query through these predicates and must see anti-rows. Excluding them at the source would silently break those paths, so exclusion is opt-in per read.
+
 ### `sole()`
 
 `sole()` is the temporal idiom for "there should be exactly one row at this point". It returns that single model, or throws `TemporalCardinalityException` — `expectedOneFoundNone` or `expectedOneFoundMany` — so a broken timeline surfaces loudly instead of silently returning the wrong row. On a `bitemporalOne()` relation, `sole()` returns `null` for "none" unless you used `bitemporalOneOrFail()`.

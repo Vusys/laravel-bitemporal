@@ -41,6 +41,14 @@ class BitemporalBuilder extends Builder
 
     /**
      * Rows whose valid period contains the instant: valid_from <= t < valid_to.
+     *
+     * Retractions are NOT excluded. An anti-row carries a real valid period, so
+     * it satisfies this predicate and comes back with its value columns nulled —
+     * a retracted window reads as "present but null", not "absent". Chain
+     * {@see HasSpellQueries::excludeRetractions()} whenever you consume domain
+     * values and want a retracted window to read as empty. The default keeps
+     * anti-rows visible on purpose: diffs, timelines and the writer's own
+     * supersession pass all query through this predicate and must see them.
      */
     public function validAt(CarbonInterface|string $date): static
     {
@@ -63,6 +71,11 @@ class BitemporalBuilder extends Builder
 
     /**
      * The current belief: rows whose recorded period is still open.
+     *
+     * Like {@see validAt()}, this does not drop anti-rows — a retracted window
+     * is part of the current belief. Add
+     * {@see HasSpellQueries::excludeRetractions()} when you want retracted
+     * windows to read as empty rather than as null-valued rows.
      */
     public function currentKnowledge(): static
     {
