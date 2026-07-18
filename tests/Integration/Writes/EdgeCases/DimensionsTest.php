@@ -67,6 +67,22 @@ final class DimensionsTest extends IntegrationTestCase
         $product->dimensionedPrices()->correct(['amount' => 1200], validFrom: '2026-01-01');
     }
 
+    public function test_dimension_omitted_from_tuple_but_present_in_attributes_reports_incomplete(): void
+    {
+        // Issue #48: currency is a declared dimension, supplied in attributes but
+        // NOT pinned via forDimensions(). The user's real mistake is an
+        // incomplete dimension tuple; they must get that diagnostic, not the
+        // misleading "conflict" (value-vs-null) error.
+        CarbonImmutable::setTestNow('2026-06-01 00:00:00');
+
+        $product = $this->makeProduct();
+
+        $this->expectException(TemporalMissingDimensionException::class);
+        $this->expectExceptionMessage("missing the required dimension 'currency'");
+
+        $product->dimensionedPrices()->changeEffectiveFrom(['amount' => 1200, 'currency' => 'GBP'], '2026-06-01');
+    }
+
     public function test_dimension_conflict_is_rejected(): void
     {
         CarbonImmutable::setTestNow('2026-06-01 00:00:00');
