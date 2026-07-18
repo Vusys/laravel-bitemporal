@@ -58,7 +58,14 @@ final class BackfillValidator
         }
     }
 
-    private function overlaps(TimelineSegment $a, TimelineSegment $b): bool
+    /**
+     * Two segments conflict only when they collide on BOTH axes — their valid
+     * periods intersect AND their recorded periods intersect. Rows that share a
+     * valid period but sit on disjoint recorded periods are legitimate
+     * superseded beliefs, not overlaps. Public so the streaming backfill's
+     * cross-chunk audit tests the exact same predicate.
+     */
+    public function overlaps(TimelineSegment $a, TimelineSegment $b): bool
     {
         if (! $a->recordedSpell instanceof Spell || ! $b->recordedSpell instanceof Spell) {
             return false;

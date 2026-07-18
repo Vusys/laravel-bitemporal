@@ -9,6 +9,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
+use Vusys\Bitemporal\BitemporalBuilder;
 use Vusys\Bitemporal\Events\TemporalBackfillCommitted;
 use Vusys\Bitemporal\Events\TemporalBackfillStarting;
 use Vusys\Bitemporal\Exceptions\TemporalInvalidSpellException;
@@ -224,10 +225,18 @@ final readonly class BitemporalBackfill
     }
 
     /**
-     * Scoped overlap audit over the current-known rows of this entity/dimension
-     * tuple — the same guarantee bitemporal:audit-overlaps enforces, at a cost
-     * proportional to the import rather than the whole table. On failure the
-     * inserted primary keys ride along so the caller can recover.
+     * Scoped overlap audit over the entity/dimension tuple — the same guarantee
+     * bitemporal:audit-overlaps enforces, at a cost proportional to the import
+     * rather than the whole table. On failure the inserted primary keys ride
+     * along so the caller can recover.
+     *
+     * The audit is bitemporal: importHistoricalKnowledge() inserts explicit
+     * recorded spells (both open and closed), so two chunks can each insert
+     * *closed* rows that collide only when both the valid and recorded periods
+     * intersect. It therefore loads ALL rows for the tuple (not just the
+     * current-known ones) and tests intersection on both axes via the exact
+     * predicate the per-chunk BackfillValidator uses. It reads withoutLens() so
+     * an active as-of/knownAt frame cannot hide a conflicting row.
      *
      * @param  array<int, Model>  $inserted
      */
@@ -235,24 +244,44 @@ final readonly class BitemporalBackfill
     {
         $query = $this->related->newQuery();
 
+        if ($query instanceof BitemporalBuilder) {
+            $query->withoutLens();
+        }
+
         foreach ([...$this->entityScope, ...$this->dimensions] as $column => $value) {
             $query->where($column, $value);
         }
 
-        $rows = $query->whereNull($this->meta->recordedTo)->get()->all();
+        $tracksRecorded = $this->meta->tracksRecordedTime;
 
-        $spells = [];
-        foreach ($rows as $row) {
-            $spells[] = new Spell(
-                $this->date($row->getAttribute($this->meta->validFrom)),
-                $this->date($row->getAttribute($this->meta->validTo)),
+        $segments = [];
+        foreach ($query->get()->all() as $row) {
+            $segments[] = new TimelineSegment(
+                new Spell(
+                    $this->date($row->getAttribute($this->meta->validFrom)),
+                    $this->date($row->getAttribute($this->meta->validTo)),
+                ),
+                $tracksRecorded ? new Spell(
+                    $this->date($row->getAttribute($this->meta->recordedFrom)),
+                    $this->date($row->getAttribute($this->meta->recordedTo)),
+                ) : null,
+                [],
+                (bool) $row->getAttribute($this->meta->isRetraction),
             );
         }
 
-        $count = count($spells);
+        $validator = new BackfillValidator;
+        $count = count($segments);
         for ($i = 0; $i < $count; $i++) {
             for ($j = $i + 1; $j < $count; $j++) {
-                if ($spells[$i]->intersects($spells[$j])) {
+                // Effective-dated-only tuples have no recorded axis, so a valid
+                // intersection alone is the conflict; bitemporal tuples require
+                // both axes to collide.
+                $conflict = $tracksRecorded
+                    ? $validator->overlaps($segments[$i], $segments[$j])
+                    : $segments[$i]->validSpell->intersects($segments[$j]->validSpell);
+
+                if ($conflict) {
                     throw TemporalOverlapException::afterBackfillAudit(
                         array_map(static fn (Model $row): mixed => $row->getKey(), $inserted),
                     );
