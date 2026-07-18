@@ -262,9 +262,10 @@ final readonly class BitemporalWriter
         $handle = null;
         $writeStart = microtime(true);
         $wasReplay = false;
+        $compaction = null;
 
         try {
-            $result = $this->connection()->transaction(function () use (&$handle, &$wasReplay, $windowResolver, $transform, $attributes, $compact, $starting, $committed, $expectedCurrentAttributes, $idempotencyKey, $operation, $idempotencyInputs): TemporalWriteCommitted {
+            $result = $this->connection()->transaction(function () use (&$handle, &$wasReplay, &$compaction, $windowResolver, $transform, $attributes, $compact, $starting, $committed, $expectedCurrentAttributes, $idempotencyKey, $operation, $idempotencyInputs): TemporalWriteCommitted {
                 // A prior deadlock-retry attempt may have left a session-scoped
                 // advisory lock held; acquireLock() releases it before
                 // re-acquiring so GET_LOCK stays balanced across retries.
@@ -321,10 +322,12 @@ final readonly class BitemporalWriter
                     $rowsInserted[] = $row;
                 }
 
+                // Capture the compaction so its event can fire *post-commit*
+                // alongside the committed event. Dispatching it here would let a
+                // rollback (e.g. assertNoCurrentOverlaps() below throwing) record
+                // a compaction metric for work that never committed.
                 if ($compacted) {
-                    $this->events->dispatch(new TemporalCompactionPerformed(
-                        $this->related::class, $this->entity, $this->dimensions, $before, $next->count(),
-                    ));
+                    $compaction = ['before' => $before, 'after' => $next->count()];
                 }
 
                 $this->assertNoCurrentOverlaps();
@@ -366,6 +369,14 @@ final readonly class BitemporalWriter
         // The transaction has committed by the time control returns here; firing
         // the committed event now keeps audit-log subscribers outside the write
         // transaction (matching DB::afterCommit semantics for top-level writes).
+        // The compaction event is deferred to here for the same reason — so a
+        // rolled-back write never records a compaction metric.
+        if ($compaction !== null) {
+            $this->events->dispatch(new TemporalCompactionPerformed(
+                $this->related::class, $this->entity, $this->dimensions, $compaction['before'], $compaction['after'],
+            ));
+        }
+
         $this->events->dispatch($result);
 
         return $result;

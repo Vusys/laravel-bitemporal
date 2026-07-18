@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Vusys\Bitemporal\Tests\Integration\Writes\Mutation;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Throwable;
 use Vusys\Bitemporal\Events\TemporalCompactionPerformed;
@@ -230,6 +231,29 @@ final class BitemporalWriterMutationTest extends IntegrationTestCase
             TemporalCompactionPerformed::class,
             fn (TemporalCompactionPerformed $event): bool => $event->segmentsBefore === 2 && $event->segmentsAfter === 1,
         );
+    }
+
+    public function test_compaction_event_fires_after_the_transaction_commits(): void
+    {
+        // Issue #46: TemporalCompactionPerformed used to dispatch inside the write
+        // transaction (before assertNoCurrentOverlaps could roll it back), so a
+        // rolled-back write recorded a compaction metric for work that never
+        // committed. It must now fire post-commit — outside any open transaction.
+        CarbonImmutable::setTestNow('2026-08-01 00:00:00');
+
+        $observedLevel = null;
+        Event::listen(TemporalCompactionPerformed::class, function () use (&$observedLevel): void {
+            $observedLevel = DB::transactionLevel();
+        });
+
+        $product = $this->makeProduct();
+        $this->insertPrice($product, ['amount' => 1000, 'valid_from' => '2026-01-01', 'valid_to' => '2026-06-01']);
+        $this->insertPrice($product, ['amount' => 2000, 'valid_from' => '2026-06-01', 'valid_to' => null]);
+
+        $product->prices()->correct(['amount' => 1000], validFrom: '2026-06-01');
+
+        // 0 = the listener ran after commit. Under the old code it would be 1.
+        $this->assertSame(0, $observedLevel);
     }
 
     public function test_non_compacting_write_leaves_flag_false_and_dispatches_no_event(): void
