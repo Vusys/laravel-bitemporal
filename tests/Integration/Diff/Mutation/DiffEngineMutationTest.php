@@ -6,6 +6,7 @@ namespace Vusys\Bitemporal\Tests\Integration\Diff\Mutation;
 
 use Vusys\Bitemporal\Diff\DiffEngine;
 use Vusys\Bitemporal\Diff\TemporalDiffPair;
+use Vusys\Bitemporal\Exceptions\TemporalDomainException;
 use Vusys\Bitemporal\Support\TemporalEntityMetadata;
 use Vusys\Bitemporal\Tests\Fixtures\Models\Address;
 use Vusys\Bitemporal\Tests\Fixtures\Models\Customer;
@@ -236,6 +237,23 @@ final class DiffEngineMutationTest extends IntegrationTestCase
 
         $this->assertCount(1, $diff->unchanged);
         $this->assertCount(0, $diff->changed);
+    }
+
+    public function test_duplicate_match_key_in_one_slice_is_surfaced_not_swallowed(): void
+    {
+        // Issue #77: two rows in a single believed slice sharing (valid_from,
+        // dimensions) can only come from overlapping/re-segmented rows. Keying
+        // them into an associative array would silently drop the earlier row and
+        // could report two different timelines as identical. Assert instead.
+        $to = [
+            $this->price($this->row(1, 1, 1000, 'GBP')),
+            $this->price($this->row(2, 1, 2000, 'GBP')), // same valid_from, no dimensions
+        ];
+
+        $this->expectException(TemporalDomainException::class);
+        $this->expectExceptionMessageMatches('/duplicate match key/');
+
+        DiffEngine::compare([], $to, $this->priceMeta());
     }
 
     public function test_morph_owner_type_is_not_comparable(): void
