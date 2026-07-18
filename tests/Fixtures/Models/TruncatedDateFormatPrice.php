@@ -9,17 +9,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Vusys\Bitemporal\Bitemporal;
 
 /**
- * PostgreSQL range-mode temporal model. Its table carries only the EXCLUDE USING
- * gist constraint (no plain package index), so withoutIndexes() drops nothing and
- * the constraint stays enforced. Used only by the PostgreSQL-gated test.
+ * Intentionally misconfigured: declares a $dateFormat with no sub-second
+ * precision, overriding the trait's microsecond default. Eloquent would then
+ * truncate the writer's microsecond instants on save, so
+ * BootLintTruncatedDateFormat raises. Otherwise a well-configured temporal
+ * model that passes every boot guard.
  */
-class RangeIndexedPrice extends Model
+class TruncatedDateFormatPrice extends Model
 {
     use Bitemporal;
 
-    protected $table = 'range_indexed_prices';
+    protected $table = 'product_price_versions';
 
     protected $guarded = [];
+
+    protected $dateFormat = 'Y-m-d H:i:s';
 
     /**
      * @return BelongsTo<Product, $this>

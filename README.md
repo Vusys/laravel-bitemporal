@@ -49,8 +49,6 @@ class ProductPrice extends Model
 {
     use Bitemporal;
 
-    protected $dateFormat = 'Y-m-d H:i:s.u';
-
     public function temporalEntity(): BelongsTo
     {
         return $this->belongsTo(Product::class);

@@ -17,8 +17,6 @@ class ProductPrice extends Model
     protected string $temporalEntity = Product::class;
 
     protected $guarded = [];
-
-    protected $dateFormat = 'Y-m-d H:i:s.u';
 }
 ```
 
@@ -26,7 +24,7 @@ The library derives the foreign key from the entity's natural key — `product_i
 
 You do **not** declare `$casts` for the period columns — the trait applies `immutable_datetime` casts to `valid_from`, `valid_to`, `recorded_from`, `recorded_to` and a boolean cast to `is_retraction` automatically. Disable that with `protected bool $autoApplyTemporalCasts = false;` if you need to manage casts yourself.
 
-The `$dateFormat = 'Y-m-d H:i:s.u'` line preserves microseconds through Eloquent's date serialisation; keep it.
+You also do **not** set `$dateFormat`. The immutable casts keep sub-second precision *in PHP*, but Eloquent serialises datetimes to storage with `$dateFormat`, and the connection default (`Y-m-d H:i:s`) would truncate the microsecond instants the writer records — silently collapsing distinct spells within the same second. The trait defaults `$dateFormat` to `Y-m-d H:i:s.u` so that can't happen. Declare your own only if you have a reason to; a format without fractional seconds is flagged by a boot lint.
 
 ### Per-model overrides
 
@@ -141,7 +139,7 @@ php artisan make:bitemporal-migration create_product_prices_table --model=Produc
 php artisan make:bitemporal-factory ProductPriceFactory --model=ProductPrice
 ```
 
-- `make:bitemporal-model` scaffolds the trait, the `$dateFormat`, and the `$temporalEntity` class-string.
+- `make:bitemporal-model` scaffolds the trait and the `$temporalEntity` class-string.
 - `make:bitemporal-migration` scaffolds the migration pre-filled with the Blueprint macros above (add `--temporal-only` for an effective-dated-only table).
 - `make:bitemporal-factory` scaffolds a `BitemporalFactory` for tests (see [Testing](10-testing.md#factories)).
 

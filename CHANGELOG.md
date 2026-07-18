@@ -24,6 +24,10 @@ A simpler entity declaration, plus worked-example correctness fixes surfaced by 
   ```
 
   The library builds the `BelongsTo` and derives the foreign key from the entity's natural key (`<entity>_id`) — the same column `bitemporalForeignFor()` emits — so the two can no longer drift, and the foreign key no longer has to be pinned by hand. Models with a polymorphic parent or a non-conventional foreign key override `temporalEntityRelation()` (returning a `BelongsTo` or `MorphTo`) instead of declaring the property. To migrate, replace each `temporalEntity()` method with the property, or rename it to `temporalEntityRelation()` where it returns a `MorphTo` or pins a custom key.
+- The `Bitemporal` trait now defaults `$dateFormat` to `Y-m-d H:i:s.u`, so temporal models no longer need to declare it by hand — the trait already owned the in-memory precision (the immutable casts); this closes the storage half, since Eloquent would otherwise serialise the writer's microsecond instants with the connection default (`Y-m-d H:i:s`) and silently truncate them. An explicit `$dateFormat` still wins; `make:bitemporal-model` no longer scaffolds the line.
+
+### Added
+- `BootLintTruncatedDateFormat`: warns when a model declares a `$dateFormat` without sub-second precision, which would truncate temporal spells on save.
 
 ### Fixed
 - `backfill()->timeline()` / `importHistoricalKnowledge()` now accept value columns supplied flat on each row (as `supersedeTimeline()` already does), not only nested under an `attributes` key.
@@ -31,6 +35,7 @@ A simpler entity declaration, plus worked-example correctness fixes surfaced by 
 
 ### Documentation
 - Corrected the worked examples (insurance, salary, subscriptions, tax) and the model/writing/dimensions guides: adopted the `$temporalEntity` declaration, made value columns nullable where `retract()` is used, noted that a write replaces the whole value tuple, fixed a zero-length backfill spell, and pinned the `Compensation` table name.
+- Dropped the `$dateFormat` line from every model example now that the trait supplies it, and replaced the "keep this line" note in the model guide with an explanation of why the trait owns microsecond precision.
 
 ### Tested
 - Added a `Tests\Docs` suite that recreates all four worked examples end to end.

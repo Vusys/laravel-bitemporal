@@ -31,6 +31,4 @@ class TaxRate extends Model
     protected string $temporalEntity = TaxJurisdiction::class;
 
     protected $guarded = [];
-
-    protected $dateFormat = 'Y-m-d H:i:s.u';
 }

@@ -46,6 +46,4 @@ class Compensation extends Model
     protected $casts = [
         'annual_amount' => 'integer',
     ];
-
-    protected $dateFormat = 'Y-m-d H:i:s.u';
 }

@@ -22,6 +22,4 @@ class {{ class }} extends Model
     protected string $temporalEntity = {{ entity }}::class;
 
     protected $guarded = [];
-
-    protected $dateFormat = 'Y-m-d H:i:s.u';
 }

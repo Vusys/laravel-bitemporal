@@ -18,7 +18,6 @@ class TaxRate extends Model
     protected array $temporalDimensions = ['category'];
 
     protected $guarded = [];
-    protected $dateFormat = 'Y-m-d H:i:s.u';
 }
 ```
 

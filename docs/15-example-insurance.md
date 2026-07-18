@@ -19,7 +19,6 @@ class PolicyCoverage extends Model
     protected string $temporalEntity = Policy::class;
 
     protected $guarded = [];
-    protected $dateFormat = 'Y-m-d H:i:s.u';
 }
 ```
 

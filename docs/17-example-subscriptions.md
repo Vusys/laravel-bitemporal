@@ -18,7 +18,6 @@ class Subscription extends Model
     protected array $temporalDimensions = ['region'];
 
     protected $guarded = [];
-    protected $dateFormat = 'Y-m-d H:i:s.u';
 }
 ```
 
@@ -91,7 +90,6 @@ class PlanFeature extends Pivot
     public $incrementing = true;         // each version is its own row
     protected $table = 'plan_feature';
     protected $guarded = [];
-    protected $dateFormat = 'Y-m-d H:i:s.u';
 }
 ```
 

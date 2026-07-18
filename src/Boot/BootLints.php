@@ -10,6 +10,7 @@ use ReflectionClass;
 use Vusys\Bitemporal\Boot\Lints\BootLintAdvisoryLockUnavailable;
 use Vusys\Bitemporal\Boot\Lints\BootLintCompactionExcludesDomainColumn;
 use Vusys\Bitemporal\Boot\Lints\BootLintMutableDatetimeCast;
+use Vusys\Bitemporal\Boot\Lints\BootLintTruncatedDateFormat;
 use Vusys\Bitemporal\Events\TemporalBootLintRaised;
 
 /**
@@ -29,6 +30,7 @@ final readonly class BootLints
         return new self([
             new BootLintCompactionExcludesDomainColumn,
             new BootLintMutableDatetimeCast,
+            new BootLintTruncatedDateFormat,
             new BootLintAdvisoryLockUnavailable,
         ]);
     }
