@@ -146,6 +146,8 @@ final class CompositeSpellCastTest extends TestCase
         $this->assertSame(['vf', 'vt'], array_keys($result));
         $this->assertInstanceOf(CarbonImmutable::class, $result['vf']);
         $this->assertInstanceOf(CarbonImmutable::class, $result['vt']);
+        $this->assertNotNull($spell->from);
+        $this->assertNotNull($spell->to);
         $this->assertTrue($spell->from->equalTo($result['vf']));
         $this->assertTrue($spell->to->equalTo($result['vt']));
     }
@@ -170,6 +172,7 @@ final class CompositeSpellCastTest extends TestCase
         $this->assertInstanceOf(CarbonImmutable::class, $result['vf']);
         $this->assertSame('2026-01-01 14:00:00', $result['vf']->format('Y-m-d H:i:s'));
         $this->assertSame('UTC', $result['vf']->getTimezone()->getName());
+        $this->assertNotNull($spell->from);
         $this->assertTrue($spell->from->equalTo($result['vf']));
     }
 
@@ -196,6 +199,7 @@ final class CompositeSpellCastTest extends TestCase
         ]);
 
         $this->assertInstanceOf(CarbonImmutable::class, $reloaded->from);
+        $this->assertNotNull($spell->from);
         $this->assertTrue($spell->from->equalTo($reloaded->from), 'the reloaded instant must equal the original');
     }
 
