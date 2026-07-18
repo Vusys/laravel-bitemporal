@@ -30,7 +30,7 @@ Message wording lives in `lang/en/messages.php`. The `:placeholder` token set in
 
 ### `TemporalConfigurationException`
 
-Raised at boot or relation-resolution. Covers: `Bitemporal` + `SoftDeletes` on the same model; a `temporalEntityRelation()` that is not `BelongsTo`/`MorphTo`; a missing `$temporalEntity`; calling a [disabled pivot method](11-pivots.md#writing-assignments) (`attach`/`detach`/`sync`); and aggregated boot-guard failures. See [Boot guards and lints](13-boot-guards-and-lints.md).
+Raised at boot or relation-resolution. Covers: `Bitemporal` + `SoftDeletes` on the same model; a `temporalEntityRelation()` that is not `BelongsTo`/`MorphTo`; a missing `$temporalEntity`; calling a [disabled pivot method](11-pivots.md#writing-assignments) (`attach`/`detach`/`sync`); enabling `database.prefer_native_ranges`, which is not yet supported by the read path (`nativeRangesUnsupported`); and aggregated boot-guard failures. See [Boot guards and lints](13-boot-guards-and-lints.md).
 
 ### `TemporalCardinalityException`
 
@@ -56,7 +56,7 @@ factory methods — the factory name plus the message encode the scenario (there
 
 | Exception | Factory methods |
 | --- | --- |
-| `TemporalConfigurationException` | `missingTemporalEntity`, `unexpectedEntityArgument`, `disabledPivotMethod`, `guardFailures`, `appGuardFailures` |
+| `TemporalConfigurationException` | `missingTemporalEntity`, `unexpectedEntityArgument`, `disabledPivotMethod`, `nativeRangesUnsupported`, `guardFailures`, `appGuardFailures` |
 | `TemporalInvalidSpellException` | `fromAfterTo`, `zeroLength`, `mergeDisjoint`, `antiRowCorrection`, `emptyTimelineSpan`, `unparseableDate` |
 | `TemporalMissingDimensionException` | `pendingWhere`, `forbiddenAttribute`, `incomplete`, `unknownDimension`, `conflict` |
 | `TemporalOverlapException` | `betweenSegments`, `afterBackfillAudit` |
