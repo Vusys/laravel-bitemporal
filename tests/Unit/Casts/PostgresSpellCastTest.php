@@ -61,6 +61,35 @@ final class PostgresSpellCastTest extends TestCase
         $this->assertNull($this->cast()->get($this->model(), 'valid_period', '', []));
     }
 
+    public function test_parses_infinity_upper_bound_as_null(): void
+    {
+        // Issue #70: a bound written with the literal `infinity` (unquoted, as
+        // Postgres emits it) must read as an unbounded null, not throw.
+        $spell = $this->cast()->get($this->model(), 'valid_period', '["2024-01-01 00:00:00+00",infinity)', []);
+
+        $this->assertInstanceOf(Spell::class, $spell);
+        $this->assertNotNull($spell->from);
+        $this->assertNull($spell->to);
+    }
+
+    public function test_parses_negative_infinity_lower_bound_as_null(): void
+    {
+        $spell = $this->cast()->get($this->model(), 'recorded_period', '[-infinity,"2024-06-01 00:00:00+00")', []);
+
+        $this->assertInstanceOf(Spell::class, $spell);
+        $this->assertNull($spell->from);
+        $this->assertNotNull($spell->to);
+    }
+
+    public function test_parses_infinity_bounds_case_insensitively_and_quoted(): void
+    {
+        $spell = $this->cast()->get($this->model(), 'valid_period', '[-Infinity,"Infinity")', []);
+
+        $this->assertInstanceOf(Spell::class, $spell);
+        $this->assertNull($spell->from);
+        $this->assertNull($spell->to);
+    }
+
     public function test_passes_through_an_existing_spell(): void
     {
         $spell = Spell::between('2024-01-01', '2024-02-01');
