@@ -58,7 +58,7 @@ final class DiffTimelinesCommand extends Command
 
         $diff = $query->diffTimelines($fromKnownAt, $toKnownAt);
 
-        $this->line("added: {$diff->added->count()}, removed: {$diff->removed->count()}, changed: {$diff->changed->count()}, unchanged: {$diff->unchanged->count()}");
+        $this->line("added: {$diff->added->count()}, removed: {$diff->removed->count()}, changed: {$diff->changed->count()}, retracted: {$diff->retracted->count()}, unchanged: {$diff->unchanged->count()}");
 
         foreach ($diff->changed as $pair) {
             $this->line('  changed ['.implode(', ', $pair->changedAttributes).']');

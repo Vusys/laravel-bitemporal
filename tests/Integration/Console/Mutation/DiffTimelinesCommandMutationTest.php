@@ -35,7 +35,7 @@ final class DiffTimelinesCommandMutationTest extends IntegrationTestCase
 
         $this->assertSame(0, $exit);
         // Exact summary line; the foreign-entity row must not appear in any bucket.
-        $this->assertStringContainsString('added: 0, removed: 0, changed: 1, unchanged: 0', $output);
+        $this->assertStringContainsString('added: 0, removed: 0, changed: 1, retracted: 0, unchanged: 0', $output);
         // The changed attribute list is printed exactly.
         $this->assertStringContainsString('  changed [amount]', $output);
     }

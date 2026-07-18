@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use PHPUnit\Framework\Assert;
 use Vusys\Bitemporal\Diff\TemporalDiffPair;
+use Vusys\Bitemporal\Diff\TemporalRetraction;
 use Vusys\Bitemporal\Tests\Fixtures\Models\Product;
 use Vusys\Bitemporal\Tests\Fixtures\Models\ProductPrice;
 use Vusys\Bitemporal\Tests\Journey\Concerns\ExploresTimelines;
@@ -25,8 +26,8 @@ use Vusys\Runabout\Step;
  * record time. After every step the diff is taken and, independently, the belief
  * at both kA and now is read straight from the store. The reconciliation law
  * must hold on every trail:
- *  - the belief now  == unchanged ∪ added   ∪ changed.to;
- *  - the belief at kA == unchanged ∪ removed ∪ changed.from.
+ *  - the belief now  == unchanged ∪ added   ∪ changed.to   ∪ retracted.to;
+ *  - the belief at kA == unchanged ∪ removed ∪ changed.from ∪ retracted.from.
  *
  * A diff that drops, duplicates or misclassifies a believed row breaks it.
  */
@@ -135,12 +136,20 @@ final class DiffRoundTripJourney extends Journey
                     ...$unchanged,
                     ...$diff->added->map(fn (Model $row): string => $this->canonical($row))->all(),
                     ...$diff->changed->map(fn (TemporalDiffPair $pair): string => $this->canonical($pair->to))->all(),
+                    // A withdrawn window is believed now as its anti-row.
+                    ...$diff->retracted->map(fn (TemporalRetraction $r): string => $this->canonical($r->to))->all(),
                 ];
 
                 $reconstructedThen = [
                     ...$unchanged,
                     ...$diff->removed->map(fn (Model $row): string => $this->canonical($row))->all(),
                     ...$diff->changed->map(fn (TemporalDiffPair $pair): string => $this->canonical($pair->from))->all(),
+                    // The pre-retraction value row was believed at kA (absent when
+                    // the window was both created and retracted after kA).
+                    ...$diff->retracted
+                        ->map(fn (TemporalRetraction $r): ?string => $r->from !== null ? $this->canonical($r->from) : null)
+                        ->filter(fn (?string $canonical): bool => $canonical !== null)
+                        ->all(),
                 ];
 
                 Assert::assertSame(

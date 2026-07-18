@@ -14,10 +14,12 @@ use Vusys\Bitemporal\Support\TemporalEntityMetadata;
 
 /**
  * Compares two sets of believed rows and classifies each into added / removed /
- * changed / unchanged. Rows are matched by their (dimension tuple, valid_from)
- * key; "comparable" attributes are the value columns plus valid_to and the
- * retraction flag — recorded-time columns are ignored because they differ by
- * construction between two recorded dates.
+ * changed / retracted / unchanged. Rows are matched by their (dimension tuple,
+ * valid_from) key; "comparable" attributes are the value columns plus valid_to
+ * and the retraction flag — recorded-time columns are ignored because they
+ * differ by construction between two recorded dates. A window that newly became
+ * an anti-row (is_retraction false → true, or a retraction present only on the
+ * "to" side) is classified as `retracted` rather than changed/added.
  */
 final class DiffEngine
 {
@@ -36,17 +38,41 @@ final class DiffEngine
         $removed = new Collection;
         /** @var Collection<int, TemporalDiffPair> $changed */
         $changed = new Collection;
+        /** @var Collection<int, TemporalRetraction> $retracted */
+        $retracted = new Collection;
         /** @var Collection<int, Model> $unchanged */
         $unchanged = new Collection;
 
         foreach ($toByKey as $key => $toRow) {
+            $toRetracted = self::isRetraction($toRow, $meta);
+
             if (! isset($fromByKey[$key])) {
-                $added->push($toRow);
+                // A window appearing only on the "to" side as an anti-row is a
+                // withdrawal recorded between the two knowledge dates, not a new
+                // value: classify it as retracted (with no earlier side) rather
+                // than added.
+                if ($toRetracted) {
+                    $retracted->push(new TemporalRetraction(null, $toRow));
+                } else {
+                    $added->push($toRow);
+                }
 
                 continue;
             }
 
             $fromRow = $fromByKey[$key];
+
+            // A window that newly became a retraction is a withdrawal, not a
+            // value update — surfacing it as `changed` (amount → null,
+            // is_retraction → true) would let a consumer misread it as a real
+            // price change to NULL. A window that was already retracted on the
+            // "from" side is left to the ordinary changed/unchanged paths.
+            if ($toRetracted && ! self::isRetraction($fromRow, $meta)) {
+                $retracted->push(new TemporalRetraction($fromRow, $toRow));
+
+                continue;
+            }
+
             $changedAttributes = self::changedAttributes($fromRow, $toRow, $meta);
 
             if ($changedAttributes === []) {
@@ -64,7 +90,7 @@ final class DiffEngine
             }
         }
 
-        return new TemporalDiff($added, $removed, $changed, $unchanged);
+        return new TemporalDiff($added, $removed, $changed, $retracted, $unchanged);
     }
 
     /**
@@ -79,6 +105,11 @@ final class DiffEngine
         }
 
         return $keyed;
+    }
+
+    private static function isRetraction(Model $row, TemporalEntityMetadata $meta): bool
+    {
+        return (bool) $row->getAttribute($meta->isRetraction);
     }
 
     private static function matchKey(Model $row, TemporalEntityMetadata $meta): string

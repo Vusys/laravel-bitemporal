@@ -6,6 +6,7 @@ namespace Vusys\Bitemporal\Tests\Integration\Diff\Mutation;
 
 use Vusys\Bitemporal\Diff\DiffEngine;
 use Vusys\Bitemporal\Diff\TemporalDiffPair;
+use Vusys\Bitemporal\Diff\TemporalRetraction;
 use Vusys\Bitemporal\Support\TemporalEntityMetadata;
 use Vusys\Bitemporal\Tests\Fixtures\Models\Address;
 use Vusys\Bitemporal\Tests\Fixtures\Models\Customer;
@@ -236,6 +237,60 @@ final class DiffEngineMutationTest extends IntegrationTestCase
 
         $this->assertCount(1, $diff->unchanged);
         $this->assertCount(0, $diff->changed);
+    }
+
+    public function test_a_window_that_became_a_retraction_is_classified_as_retracted(): void
+    {
+        // Issue #76: a window withdrawn between the two knowledge dates
+        // (is_retraction false -> true, value -> null) is a retraction, not a
+        // value update. It must land in `retracted`, not `changed`.
+        $from = [$this->price($this->row(1, 1, 1000, 'GBP'))];
+        $to = [$this->price($this->row(2, 1, 1000, 'GBP', ['amount' => null, 'is_retraction' => true]))];
+
+        $diff = DiffEngine::compare($from, $to, $this->priceMeta());
+
+        $this->assertCount(1, $diff->retracted);
+        $this->assertCount(0, $diff->changed);
+        $this->assertCount(0, $diff->added);
+
+        $retraction = $diff->retracted->first();
+        $this->assertInstanceOf(TemporalRetraction::class, $retraction);
+        // Both sides are preserved: the anti-row now and the value row at kA.
+        $this->assertTrue($retraction->to->getAttribute('is_retraction'));
+        $this->assertSame(1000, $retraction->from?->getAttribute('amount'));
+        $this->assertFalse($diff->isEmpty());
+    }
+
+    public function test_a_retraction_only_on_the_to_side_is_retracted_not_added(): void
+    {
+        // A retraction present only on the "to" side is a withdrawal recorded
+        // between the two dates, not a newly added value. There is no earlier
+        // side, so `from` is null.
+        $to = [$this->price($this->row(1, 1, 1000, 'GBP', ['amount' => null, 'is_retraction' => true]))];
+
+        $diff = DiffEngine::compare([], $to, $this->priceMeta());
+
+        $this->assertCount(1, $diff->retracted);
+        $this->assertCount(0, $diff->added);
+
+        $retraction = $diff->retracted->first();
+        $this->assertInstanceOf(TemporalRetraction::class, $retraction);
+        $this->assertNull($retraction->from);
+        $this->assertFalse($diff->isEmpty());
+    }
+
+    public function test_a_window_retracted_on_both_sides_is_not_re_reported_as_retracted(): void
+    {
+        // Already an anti-row on the "from" side: no NEW withdrawal happened, so
+        // this stays on the ordinary changed/unchanged paths, not `retracted`.
+        $retracted = ['amount' => null, 'is_retraction' => true];
+        $from = [$this->price($this->row(1, 1, 1000, 'GBP', $retracted))];
+        $to = [$this->price($this->row(2, 1, 1000, 'GBP', $retracted))];
+
+        $diff = DiffEngine::compare($from, $to, $this->priceMeta());
+
+        $this->assertCount(0, $diff->retracted);
+        $this->assertCount(1, $diff->unchanged);
     }
 
     public function test_morph_owner_type_is_not_comparable(): void
