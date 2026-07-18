@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Vusys\Bitemporal\Tests\Integration\Writes\Mutation;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Vusys\Bitemporal\Exceptions\TemporalWriteConflictException;
 use Vusys\Bitemporal\Idempotency\IdempotencyStore;
 use Vusys\Bitemporal\Tests\Integration\IntegrationTestCase;
 
@@ -108,5 +110,31 @@ final class IdempotencyStoreMutationTest extends IntegrationTestCase
 
         $this->assertNotNull($found);
         $this->assertSame(true, $found['compacted']);
+    }
+
+    public function test_unreadable_snapshot_fails_loudly_instead_of_replaying_as_a_miss(): void
+    {
+        // Issue #50: a claimed key whose stored result cannot be decoded is NOT a
+        // miss. Returning null would re-run a write that already committed once,
+        // double-applying it. find() must distinguish "unreadable row" from "no
+        // row" and throw.
+        $connection = DB::connection();
+        $entityId = uniqid('corrupt-', true);
+        $hash = str_repeat('h', 64);
+
+        $connection->table('temporal_idempotency_keys')->insert([
+            'key' => 'k',
+            'model' => 'M',
+            'entity_type' => null,
+            'entity_id' => $entityId,
+            'operation' => 'correct',
+            'parameters_hash' => $hash,
+            'result_snapshot' => 'not-valid-json{',
+            'created_at' => CarbonImmutable::now()->format('Y-m-d H:i:s.u'),
+        ]);
+
+        $this->expectException(TemporalWriteConflictException::class);
+
+        $this->store()->find($connection, 'M', null, $entityId, 'k', $hash, '1 day');
     }
 }

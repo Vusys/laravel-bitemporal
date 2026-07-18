@@ -36,6 +36,15 @@ $product->prices()->correct(
     policy's `limit` also needs `deductible` and `premium`), or you will silently
     blank the others.
 
+    This bites hardest on a **partial-window** `correct()`. If a correction
+    covers only part of an existing segment, the segment is split: the corrected
+    window gets your full snapshot (omitted columns `NULL`), while the untouched
+    remnants on either side keep the *original* values. You end up with a
+    timeline where the same sibling column is populated before and after the
+    window but `NULL` inside it — rarely what you meant. Always pass the complete
+    value tuple, reading the current row first if you only mean to change one
+    field.
+
 ## Ending and retracting
 
 ```php

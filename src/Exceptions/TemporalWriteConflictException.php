@@ -42,4 +42,9 @@ final class TemporalWriteConflictException extends TemporalException
     {
         return new self("idempotency key '{$key}' was already used with different parameters");
     }
+
+    public static function idempotencySnapshotUnreadable(string $key): self
+    {
+        return new self("idempotency key '{$key}' has a stored result that could not be read; refusing to silently re-run the write");
+    }
 }

@@ -198,6 +198,15 @@ final readonly class Spell implements \Stringable
         return $this->to instanceof CarbonImmutable && $other->from instanceof CarbonImmutable && $this->to->equalTo($other->from);
     }
 
+    /**
+     * True when this spell ends at or before $other begins — an **inclusive**
+     * "before or immediately adjacent" contract (uses `<=`). Because the bound
+     * is inclusive, `precedes()` and {@see meets()} are BOTH true for adjacent
+     * half-open spells such as `[0,5)` and `[5,10)`: the first meets and precedes
+     * the second. If you need strict "before with a gap", combine with
+     * `! $a->meets($b)`; if you need "before, possibly touching", `precedes()`
+     * alone is it.
+     */
     public function precedes(Spell $other): bool
     {
         return $this->to instanceof CarbonImmutable && $other->from instanceof CarbonImmutable && $this->to->lessThanOrEqualTo($other->from);

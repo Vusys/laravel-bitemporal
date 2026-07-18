@@ -70,6 +70,11 @@ final class PostgresSpellCast implements CastsAttributes
 
         if (str_starts_with($value, '"') && str_ends_with($value, '"')) {
             $value = substr($value, 1, -1);
+            // Postgres doubles an interior double-quote inside a quoted range
+            // element ("" -> "). Timestamp literals never contain quotes, so this
+            // is a no-op today, but un-doubling keeps the parser correct for any
+            // quoted content rather than silently mangling it.
+            $value = str_replace('""', '"', $value);
         }
 
         return $value === '' ? null : CarbonImmutable::parse($value);

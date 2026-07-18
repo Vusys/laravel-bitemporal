@@ -314,9 +314,23 @@ final readonly class BitemporalWriter
 
                 $plan = $this->splitter->plan($current, $next);
 
+                // closeIndexes point into $current->segments(), which the Timeline
+                // constructor re-sorts by valid_from — a different sort expression
+                // than loadCurrentKnown() uses for $currentModels. They align today
+                // only because current-known valid spells are unique, but that is
+                // fragile positional coupling. Resolve each close target by the
+                // segment's valid-spell identity instead, via a spell -> model map.
+                $currentSegments = $current->segments();
+                $modelsBySpell = [];
+                foreach ($currentModels as $model) {
+                    $modelsBySpell[$this->spellKey($this->validFrom($model), $this->validTo($model))] = $model;
+                }
+
                 $rowsClosed = [];
                 foreach ($plan['closeIndexes'] as $index) {
-                    $model = $currentModels[$index];
+                    $segment = $currentSegments[$index];
+                    $model = $modelsBySpell[$this->spellKey($segment->validSpell->from, $segment->validSpell->to)]
+                        ?? throw TemporalDomainException::invariant('close target has no current row matching its valid spell', 'BitemporalWriter::run');
                     $this->closeRow($model, $recordedAt);
                     $rowsClosed[] = $model;
                 }
@@ -630,6 +644,16 @@ final readonly class BitemporalWriter
         $value = $model->getAttribute($this->meta->validTo);
 
         return $value instanceof CarbonImmutable ? $value : null;
+    }
+
+    /**
+     * A stable identity key for a valid spell. Current-known rows never overlap,
+     * so their valid spells are unique — this maps a plan segment back to its
+     * physical row without depending on positional ordering.
+     */
+    private function spellKey(?CarbonImmutable $from, ?CarbonImmutable $to): string
+    {
+        return ($from?->format('Y-m-d H:i:s.u') ?? '-∞').'/'.($to?->format('Y-m-d H:i:s.u') ?? '∞');
     }
 
     /**

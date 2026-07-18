@@ -24,7 +24,9 @@ This is the audit trail of a single write in object form: what was superseded, w
 
 ## The event catalogue
 
-Fired *after commit* (via `DB::afterCommit`), so listeners only run when the write actually landed:
+The **Committed** events fire *after commit*, so their listeners only run when the write actually landed. The **Starting** events fire *inside the write transaction*, before the rows are written.
+
+> **`*Starting` listeners must be side-effect-free.** A `*Starting` event is dispatched inside the open write transaction, so if the write subsequently fails and rolls back, any side effect your listener performed (a queued job, a cache write, an outbound HTTP call, a row in another table) is **not** rolled back with it. Use `*Starting` only for in-transaction bookkeeping; put anything with an external side effect on the matching `*Committed` event, which fires only after the write durably lands.
 
 | Write method | Starting event | Committed event |
 | --- | --- | --- |
@@ -90,6 +92,8 @@ Event::listen(function (TemporalAuditLogWriteFailed $e) {
     Log::error('temporal audit write failed', ['event' => $e]);
 });
 ```
+
+A failed audit insert is **never fully silent**: the subscriber logs it at `error` level via the default logger regardless of whether anything listens to `TemporalAuditLogWriteFailed`. But the audit trail is still *best-effort* — the temporal write commits whether or not its audit row lands. If you need an audit record that is guaranteed to exist exactly when the write does (e.g. for compliance), do not rely on the best-effort subscriber: listen to the committed events directly and persist within your own transaction, or reconcile against them. The committed events carry the same information.
 
 If you want different audit behaviour, leave the subscriber off and listen to the committed events directly — they carry the same information.
 

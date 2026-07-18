@@ -32,7 +32,33 @@ final class AttributeEquality
             return false;
         }
 
+        // Compare numerics by value, not by type/representation. Driver type
+        // drift ("10.00" from an un-cast decimal column vs 10 from a cast one,
+        // or "0" vs 0) would otherwise register as a spurious change and trigger
+        // needless close+reinsert churn or a failed compaction. bool is excluded
+        // (is_numeric(true) is false and a bool is not int/float/string), so
+        // true/1 stay distinct.
+        $aNumeric = self::asFloat($a);
+        $bNumeric = self::asFloat($b);
+
+        if ($aNumeric !== null && $bNumeric !== null) {
+            return $aNumeric === $bNumeric;
+        }
+
         return $a === $b;
+    }
+
+    private static function asFloat(mixed $value): ?float
+    {
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        if (is_string($value) && is_numeric($value)) {
+            return (float) $value;
+        }
+
+        return null;
     }
 
     /**
