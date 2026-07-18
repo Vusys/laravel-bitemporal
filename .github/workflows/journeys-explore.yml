@@ -1,16 +1,13 @@
-name: journeys-nightly
+name: journeys-explore
 
-# High-shuffle journey exploration across the database matrix. The tests
-# workflow runs journeys at 25 shuffles on every PR; this job cranks
-# JOURNEY_SHUFFLES far higher and, with RUNABOUT_RANDOMIZE=1, explores fresh
-# seeds every night so rare orderings surface over time. A failure prints the
-# shrunk trail and a RUNABOUT_SEED / RUNABOUT_TRAIL replay line for a
+# On-demand high-shuffle journey exploration across the database matrix. The
+# tests workflow runs journeys at 25 shuffles on every PR; trigger this one by
+# hand (Actions → Run workflow) to crank JOURNEY_SHUFFLES far higher and, with
+# RUNABOUT_RANDOMIZE=1, explore fresh seeds so rare orderings surface. A failure
+# prints the shrunk trail and a RUNABOUT_SEED / RUNABOUT_TRAIL replay line for a
 # deterministic local repro.
 
 on:
-  schedule:
-    # 03:17 UTC daily — an off-the-hour minute to dodge scheduler congestion.
-    - cron: '17 3 * * *'
   workflow_dispatch:
     inputs:
       shuffles:
