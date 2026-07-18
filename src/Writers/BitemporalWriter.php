@@ -303,8 +303,7 @@ final readonly class BitemporalWriter
                 $rowsClosed = [];
                 foreach ($plan['closeIndexes'] as $index) {
                     $model = $currentModels[$index];
-                    $model->setAttribute($this->meta->recordedTo, $recordedAt);
-                    $this->persist($model);
+                    $this->closeRow($model, $recordedAt);
                     $rowsClosed[] = $model;
                 }
 
@@ -547,7 +546,16 @@ final readonly class BitemporalWriter
      */
     private function loadCurrentKnown(): array
     {
-        $models = $this->newQuery()->currentKnowledge()->get()->all();
+        $query = $this->newQuery();
+
+        // Effective-dated-only models have no recorded spell, so every stored
+        // row is the current belief; currentKnowledge() would filter on a
+        // recorded_to column that these models don't track (and may not have).
+        if ($this->meta->tracksRecordedTime) {
+            $query->currentKnowledge();
+        }
+
+        $models = $query->get()->all();
 
         usort($models, fn (Model $a, Model $b): int => [$this->validFrom($a) instanceof CarbonImmutable, $this->validFrom($a)] <=> [$this->validFrom($b) instanceof CarbonImmutable, $this->validFrom($b)]);
 
@@ -663,6 +671,23 @@ final readonly class BitemporalWriter
         return $row;
     }
 
+    /**
+     * Close a superseded row. A bitemporal model preserves prior knowledge by
+     * stamping the recorded spell shut; an effective-dated-only model has no
+     * recorded axis, so overwriting means physically removing the old row.
+     */
+    private function closeRow(Model $model, CarbonImmutable $recordedAt): void
+    {
+        if ($this->meta->tracksRecordedTime) {
+            $model->setAttribute($this->meta->recordedTo, $recordedAt);
+            $this->persist($model);
+
+            return;
+        }
+
+        $this->deleteRow($model);
+    }
+
     private function persist(Model $model): void
     {
         if ($this->fireEloquentEvents()) {
@@ -674,9 +699,26 @@ final readonly class BitemporalWriter
         $model->saveQuietly();
     }
 
+    private function deleteRow(Model $model): void
+    {
+        if ($this->fireEloquentEvents()) {
+            $model->delete();
+
+            return;
+        }
+
+        $model->deleteQuietly();
+    }
+
     private function captureRecordedAt(): CarbonImmutable
     {
         $now = CarbonImmutable::now($this->timezone());
+
+        // Effective-dated-only models track no recorded spell, so there is no
+        // recorded_from column to reconcile against — "now" is the only clock.
+        if (! $this->meta->tracksRecordedTime) {
+            return $now;
+        }
 
         $max = $this->newQuery()->max($this->meta->recordedFrom);
 
