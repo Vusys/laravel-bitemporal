@@ -35,6 +35,22 @@ final class PivotRelationMutationTest extends IntegrationTestCase
         return Role::query()->create(['name' => $name]);
     }
 
+    /**
+     * A dimension-scoped pivot relation, narrowed back to the relation type
+     * (forDimensions() is declared on the builder, so the fluent chain widens to
+     * BitemporalBuilder for static analysis).
+     *
+     * @return BitemporalBelongsToMany<User>
+     */
+    private function scopedRoles(User $user, string $scope): BitemporalBelongsToMany
+    {
+        $relation = $user->bitemporalBelongsToMany(Role::class, using: ScopedRoleAssignment::class)
+            ->forDimensions(['scope' => $scope]);
+        $this->assertInstanceOf(BitemporalBelongsToMany::class, $relation);
+
+        return $relation;
+    }
+
     // ---------------------------------------------------------------
     // HasBitemporalRelations: public visibility (called externally)
     // ---------------------------------------------------------------
@@ -344,6 +360,56 @@ final class PivotRelationMutationTest extends IntegrationTestCase
         $usRelation->attachFor($role, '2026-06-01', attributes: ['scope' => 'us']);
 
         $this->assertCount(2, $user->roles()->currentKnowledge()->get());
+    }
+
+    public function test_detach_at_guard_scopes_by_the_pivot_dimension_tuple(): void
+    {
+        $user = $this->makeUser();
+        $role = $this->makeRole();
+
+        // Only the `eu` scope has an open assignment.
+        $this->scopedRoles($user, 'eu')->attachFor($role, '2026-06-01', attributes: ['scope' => 'eu']);
+
+        // Detaching the `us` scope must not see the `eu` row: before issue #75
+        // the existence guard ignored the dimension tuple and would have passed,
+        // letting the writer act on a timeline that has no open assignment.
+        $this->expectException(TemporalCardinalityException::class);
+
+        $this->scopedRoles($user, 'us')->detachAt($role, '2026-09-01');
+    }
+
+    public function test_correct_assignment_guard_scopes_by_the_pivot_dimension_tuple(): void
+    {
+        $user = $this->makeUser();
+        $role = $this->makeRole();
+
+        $this->scopedRoles($user, 'eu')->attachFor($role, '2026-06-01', attributes: ['scope' => 'eu']);
+
+        $this->expectException(TemporalCardinalityException::class);
+
+        $this->scopedRoles($user, 'us')->correctAssignment($role, '2026-06-01', '2026-08-01');
+    }
+
+    public function test_detach_at_on_a_scoped_assignment_is_isolated_to_its_dimension(): void
+    {
+        $user = $this->makeUser();
+        $role = $this->makeRole();
+
+        foreach (['eu', 'us'] as $scope) {
+            $this->scopedRoles($user, $scope)->attachFor($role, '2026-06-01', attributes: ['scope' => $scope]);
+        }
+
+        // Ending the `eu` assignment must leave the `us` assignment open-ended.
+        $this->scopedRoles($user, 'eu')->detachAt($role, '2026-09-01');
+
+        $open = ScopedRoleAssignment::query()
+            ->where('user_id', '=', $user->getKey())
+            ->currentKnowledge()
+            ->whereNull('valid_to')
+            ->get();
+
+        $this->assertCount(1, $open);
+        $this->assertSame('us', $open->first()?->scope);
     }
 
     // ---------------------------------------------------------------
