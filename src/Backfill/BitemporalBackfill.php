@@ -142,6 +142,15 @@ final readonly class BitemporalBackfill
                 $rowsInserted[] = $row;
             }
 
+            // BackfillValidator only checks the in-memory batch for internal
+            // overlap; backfilling into a scope that already holds rows could
+            // otherwise insert bitemporally-overlapping rows undetected (issue
+            // #71). Run the same scoped DB audit the streaming path runs — here,
+            // still inside the transaction, so a conflict rolls the batch back.
+            if ($this->postAuditEnabled()) {
+                $this->auditScopedOverlaps($rowsInserted);
+            }
+
             return new TemporalBackfillCommitted($this->related::class, $this->entity, $this->dimensions, $rowsInserted);
         });
 

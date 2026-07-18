@@ -99,6 +99,53 @@ final class BackfillTest extends IntegrationTestCase
         ]);
     }
 
+    public function test_backfill_detects_overlap_against_pre_existing_rows(): void
+    {
+        // Issue #71: the batch path validated only its own in-memory rows, so a
+        // second backfill into a scope that already holds a row could insert a
+        // bitemporally-overlapping row undetected.
+        CarbonImmutable::setTestNow('2026-06-01 00:00:00');
+
+        $product = $this->makeProduct();
+
+        $product->prices()->backfill()->timeline([
+            ['attributes' => ['amount' => 1000], 'valid_from' => '2026-01-01', 'valid_to' => null, 'recorded_from' => '2026-01-01', 'recorded_to' => null],
+        ]);
+        $this->assertSame(1, ProductPrice::query()->count());
+
+        try {
+            $product->prices()->backfill()->timeline([
+                ['attributes' => ['amount' => 1200], 'valid_from' => '2026-01-01', 'valid_to' => null, 'recorded_from' => '2026-01-01', 'recorded_to' => null],
+            ]);
+            $this->fail('the scoped audit should have detected the overlap with the existing row');
+        } catch (TemporalOverlapException $exception) {
+            $this->assertNotEmpty($exception->getInsertedIds());
+        }
+
+        // The audit runs inside the batch transaction, so the conflicting insert
+        // is rolled back atomically — the scope still holds only the first row.
+        $this->assertSame(1, ProductPrice::query()->count());
+    }
+
+    public function test_backfill_scoped_audit_can_be_disabled(): void
+    {
+        config(['bitemporal.backfill.post_audit_check' => false]);
+        CarbonImmutable::setTestNow('2026-06-01 00:00:00');
+
+        $product = $this->makeProduct();
+
+        $product->prices()->backfill()->timeline([
+            ['attributes' => ['amount' => 1000], 'valid_from' => '2026-01-01', 'valid_to' => null, 'recorded_from' => '2026-01-01', 'recorded_to' => null],
+        ]);
+
+        // With the audit off the overlapping row imports without complaint.
+        $product->prices()->backfill()->timeline([
+            ['attributes' => ['amount' => 1200], 'valid_from' => '2026-01-01', 'valid_to' => null, 'recorded_from' => '2026-01-01', 'recorded_to' => null],
+        ]);
+
+        $this->assertSame(2, ProductPrice::query()->count());
+    }
+
     public function test_timeline_accepts_flat_value_columns(): void
     {
         CarbonImmutable::setTestNow('2026-06-01 00:00:00');
