@@ -223,6 +223,12 @@ class BitemporalBelongsToMany extends HasMany
             ->withoutLens()
             ->where($this->foreignPivotKey, '=', $this->parent->getKey())
             ->where($this->relatedPivotKey, '=', $related->getKey())
+            // Scope by the pivot dimension tuple exactly as assignmentWriter()
+            // does; without it the existence guard answers "is there an open
+            // assignment?" across ALL dimension values, so it can pass for a
+            // dimension (e.g. a `scope` column) that has no open row and let the
+            // writer no-op or write an unexpected timeline (issue #75).
+            ->forDimensions($this->pivotDimensionTuple())
             ->currentKnowledge();
     }
 
