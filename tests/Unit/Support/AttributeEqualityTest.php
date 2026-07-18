@@ -40,6 +40,26 @@ final class AttributeEqualityTest extends TestCase
         $this->assertFalse(AttributeEquality::equals('10', 'ten'));
     }
 
+    public function test_distinct_numeric_strings_do_not_fold(): void
+    {
+        // Issue #66: two textually distinct numeric strings are genuinely
+        // distinct values. Folding them via float treats a real correction as a
+        // no-op and silently drops the write.
+        $this->assertFalse(AttributeEquality::equals('007', '7'));   // zero-padded code
+        $this->assertFalse(AttributeEquality::equals('1000', '1e3')); // exponential notation
+        $this->assertFalse(AttributeEquality::equals('7', '7.0'));
+
+        // Identical strings still match.
+        $this->assertTrue(AttributeEquality::equals('007', '007'));
+    }
+
+    public function test_large_integers_compare_exactly(): void
+    {
+        // Issue #66: integers past 2^53 lose precision as float and would fold.
+        $this->assertFalse(AttributeEquality::equals(9007199254740992, 9007199254740993));
+        $this->assertTrue(AttributeEquality::equals(9007199254740992, 9007199254740992));
+    }
+
     public function test_datetimes_compared_by_instant(): void
     {
         $newYork = CarbonImmutable::parse('2026-01-01 12:00:00', 'America/New_York');
