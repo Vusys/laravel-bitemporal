@@ -114,10 +114,15 @@ final class IdempotencyStoreMutationTest extends IntegrationTestCase
 
     public function test_unreadable_snapshot_fails_loudly_instead_of_replaying_as_a_miss(): void
     {
-        // Issue #50: a claimed key whose stored result cannot be decoded is NOT a
-        // miss. Returning null would re-run a write that already committed once,
-        // double-applying it. find() must distinguish "unreadable row" from "no
-        // row" and throw.
+        // Issue #50: a claimed key whose stored result does not decode to the
+        // expected object shape is NOT a miss. Returning null would re-run a write
+        // that already committed once, double-applying it. find() must distinguish
+        // "unreadable row" from "no row" and throw.
+        //
+        // result_snapshot is a JSON column (json_valid CHECK on MySQL/MariaDB/PG),
+        // so a literally-invalid string can't be stored there. Use valid JSON that
+        // decodes to a non-array (a JSON scalar) — the case the ! is_array() guard
+        // actually defends against.
         $connection = DB::connection();
         $entityId = uniqid('corrupt-', true);
         $hash = str_repeat('h', 64);
@@ -129,7 +134,7 @@ final class IdempotencyStoreMutationTest extends IntegrationTestCase
             'entity_id' => $entityId,
             'operation' => 'correct',
             'parameters_hash' => $hash,
-            'result_snapshot' => 'not-valid-json{',
+            'result_snapshot' => '"corrupt"',
             'created_at' => CarbonImmutable::now()->format('Y-m-d H:i:s.u'),
         ]);
 
