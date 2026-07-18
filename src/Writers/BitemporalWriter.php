@@ -939,11 +939,11 @@ final readonly class BitemporalWriter
         $metrics = $this->metrics();
 
         if ($metrics instanceof NullMetrics) {
-            return $this->locker->lockFor($this->entity, $this->dimensions, $this->lockTimeoutMs());
+            return $this->locker->lockFor($this->entity, $this->dimensions, $this->lockTimeoutMs(), $this->connection());
         }
 
         $start = microtime(true);
-        $handle = $this->locker->lockFor($this->entity, $this->dimensions, $this->lockTimeoutMs());
+        $handle = $this->locker->lockFor($this->entity, $this->dimensions, $this->lockTimeoutMs(), $this->connection());
         $metrics->lockWaitMs((microtime(true) - $start) * 1000.0, $this->metricTags('lock'));
 
         return $handle;

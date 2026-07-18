@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Vusys\Bitemporal\Locking;
 
 use Illuminate\Database\Connection;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Vusys\Bitemporal\Exceptions\TemporalWriteConflictException;
@@ -30,9 +31,14 @@ final class AdvisoryLocker implements WriteLocker
      */
     private const string PG_LOCK_TIMEOUT = '55P03';
 
-    public function lockFor(Model $entity, array $dimensions, int $timeoutMs = 5000): WriteLockHandle
+    public function lockFor(Model $entity, array $dimensions, int $timeoutMs = 5000, ?ConnectionInterface $connection = null): WriteLockHandle
     {
-        $connection = $entity->getConnection();
+        // Lock on the connection the write transaction actually runs on, not the
+        // entity's own connection: when the two differ the entity-session lock
+        // stops serializing the writes, and on PG it degrades to no locking at
+        // all (issue #67). Fall back to the entity connection when the caller
+        // did not thread one through (e.g. direct test invocations).
+        $connection = $connection instanceof Connection ? $connection : $entity->getConnection();
         $driver = $connection->getDriverName();
         $key = $this->key($entity, $dimensions);
         $label = $this->label($entity);
@@ -46,7 +52,7 @@ final class AdvisoryLocker implements WriteLocker
         }
 
         // SQLite (and anything else without advisory locks): parent-row lock.
-        return (new ParentRowLocker)->lockFor($entity, $dimensions, $timeoutMs);
+        return (new ParentRowLocker)->lockFor($entity, $dimensions, $timeoutMs, $connection);
     }
 
     private function lockMysql(Connection $connection, string $key, string $label, int $timeoutMs): WriteLockHandle
@@ -78,6 +84,14 @@ final class AdvisoryLocker implements WriteLocker
 
     private function lockPostgres(Connection $connection, string $key, string $label, int $timeoutMs): WriteLockHandle
     {
+        // pg_advisory_xact_lock and SET LOCAL are only meaningful inside a
+        // transaction: outside one the advisory lock is released at statement
+        // end and SET LOCAL is a no-op, so the "lock" would silently provide
+        // zero mutual exclusion. Refuse rather than lock nothing (issue #67).
+        if ($connection->transactionLevel() < 1) {
+            throw TemporalWriteConflictException::lockOutsideTransaction($label);
+        }
+
         // SET LOCAL keeps the timeout scoped to the surrounding transaction; the
         // value is an integer count of milliseconds, so it is safe to inline.
         $connection->statement("SET LOCAL lock_timeout = '".max(1, $timeoutMs)."ms'");

@@ -129,7 +129,7 @@ final readonly class BitemporalBackfill
         (new BackfillValidator)->validate($segments, $now);
 
         $committed = $this->connection()->transaction(function () use ($segments): TemporalBackfillCommitted {
-            $this->locker->lockFor($this->entity, $this->dimensions);
+            $this->locker->lockFor($this->entity, $this->dimensions, connection: $this->connection());
 
             $this->events->dispatch(new TemporalBackfillStarting(
                 $this->related::class, $this->entity, $this->dimensions, count($segments),
@@ -205,7 +205,7 @@ final readonly class BitemporalBackfill
         (new BackfillValidator)->validate($segments, $now);
 
         $rowsInserted = $this->connection()->transaction(function () use ($segments): array {
-            $this->locker->lockFor($this->entity, $this->dimensions);
+            $this->locker->lockFor($this->entity, $this->dimensions, connection: $this->connection());
 
             $inserted = [];
             foreach ($segments as $segment) {
