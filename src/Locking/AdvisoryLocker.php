@@ -115,18 +115,31 @@ final class AdvisoryLocker implements WriteLocker
     }
 
     /**
+     * Build a bounded advisory-lock key. Every discriminating component — table,
+     * morph class, entity id, and the sorted dimensions — is folded into a
+     * single fixed-length sha1 digest, so the total length is always 49 chars
+     * (`temporal:` + 40). The previous form concatenated the raw components and
+     * then substr()'d to 64, which — with a long FQCN or table name — could
+     * shear the id/hash off the end, collapsing distinct tuples onto the same
+     * MySQL GET_LOCK key (false contention, or worse, a real loss of mutual
+     * exclusion between different entities). Hashing the whole composite makes
+     * every component contribute regardless of length (issue #49).
+     *
      * @param  array<string, mixed>  $dimensions
      */
     private function key(Model $entity, array $dimensions): string
     {
-        $hash = substr(sha1((string) json_encode($this->sortedKeys($dimensions))), 0, 24);
-
         $id = $entity->getKey();
         $idString = is_int($id) || is_string($id) ? (string) $id : '';
 
-        $key = 'temporal:'.$entity->getTable().':'.$entity->getMorphClass().':'.$idString.':'.$hash;
+        $composite = implode('|', [
+            $entity->getTable(),
+            $entity->getMorphClass(),
+            $idString,
+            (string) json_encode($this->sortedKeys($dimensions)),
+        ]);
 
-        return substr($key, 0, 64);
+        return 'temporal:'.substr(sha1($composite), 0, 40);
     }
 
     /**

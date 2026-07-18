@@ -11,6 +11,8 @@ use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 use Vusys\Bitemporal\BitemporalBuilder;
 use Vusys\Bitemporal\Events\TemporalChangeCommitted;
 use Vusys\Bitemporal\Events\TemporalChangeStarting;
@@ -237,7 +239,7 @@ final readonly class BitemporalWriter
         } catch (QueryException $exception) {
             throw $this->translateDeadlock($exception);
         } finally {
-            $handle?->release();
+            $this->releaseQuietly($handle);
         }
 
         $this->events->dispatch($committed);
@@ -350,7 +352,7 @@ final readonly class BitemporalWriter
         } catch (QueryException $exception) {
             throw $this->translateDeadlock($exception);
         } finally {
-            $handle?->release();
+            $this->releaseQuietly($handle);
         }
 
         // A replay reconstructs the original committed result. The original write
@@ -908,7 +910,7 @@ final readonly class BitemporalWriter
      */
     private function acquireLock(?WriteLockHandle $previous): WriteLockHandle
     {
-        $previous?->release();
+        $this->releaseQuietly($previous);
 
         $metrics = $this->metrics();
 
@@ -921,6 +923,30 @@ final readonly class BitemporalWriter
         $metrics->lockWaitMs((microtime(true) - $start) * 1000.0, $this->metricTags('lock'));
 
         return $handle;
+    }
+
+    /**
+     * Release a lock handle without ever propagating a failure. Called from the
+     * write path's finally blocks: a throw there (e.g. AdvisoryLocker's
+     * connection-changed guard, or a raw RELEASE_LOCK QueryException) would
+     * replace any in-flight exception and mask the real error, while still
+     * leaving the orphaned lock unreleased. A connection-scoped advisory lock is
+     * reclaimed when its session ends, so logging is the correct recovery (#49).
+     */
+    private function releaseQuietly(?WriteLockHandle $handle): void
+    {
+        if (! $handle instanceof WriteLockHandle) {
+            return;
+        }
+
+        try {
+            $handle->release();
+        } catch (Throwable $exception) {
+            Log::warning('Temporal write lock release failed', [
+                'strategy' => $handle->strategy(),
+                'exception' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function metrics(): TemporalMetrics
@@ -945,7 +971,7 @@ final readonly class BitemporalWriter
      * retries is a write conflict; surface it as one so callers handle it the
      * same way regardless of engine. Anything else propagates untouched.
      */
-    private function translateDeadlock(QueryException $exception): \Throwable
+    private function translateDeadlock(QueryException $exception): Throwable
     {
         if (! $this->isDeadlock($exception)) {
             return $exception;
