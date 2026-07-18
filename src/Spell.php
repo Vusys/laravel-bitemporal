@@ -7,6 +7,7 @@ namespace Vusys\Bitemporal;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Carbon\CarbonInterval;
+use Illuminate\Container\Container;
 use Vusys\Bitemporal\Exceptions\TemporalInvalidSpellException;
 
 /**
@@ -334,7 +335,27 @@ final readonly class Spell implements \Stringable
             return CarbonImmutable::instance($value);
         }
 
-        return CarbonImmutable::parse($value);
+        // Anchor bare strings to the configured spell timezone rather than the
+        // ambient PHP default, so a boundary parsed here reconstructs the same
+        // instant the read/query path and the persisted value use when the app
+        // default TZ differs from bitemporal.spells.timezone (issue #69). Parse
+        // then convert (not reinterpret): a string carrying an offset keeps it,
+        // matching BitemporalWriter::instant().
+        return CarbonImmutable::parse($value)->setTimezone(self::timezone());
+    }
+
+    private static function timezone(): string
+    {
+        // Spell is a value object that may be built outside a booted app (pure
+        // unit tests, CLI value construction), so degrade to UTC when the config
+        // repository is not bound rather than throwing.
+        if (! Container::getInstance()->bound('config')) {
+            return 'UTC';
+        }
+
+        $timezone = config('bitemporal.spells.timezone', 'UTC');
+
+        return is_string($timezone) ? $timezone : 'UTC';
     }
 
     private static function parseNullable(CarbonInterface|string|null $value): ?CarbonImmutable

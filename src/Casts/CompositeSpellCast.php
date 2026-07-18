@@ -74,9 +74,20 @@ final readonly class CompositeSpellCast implements CastsAttributes
             return [];
         }
 
+        // Persist each bound in the configured spell timezone so the offset-less
+        // wall-clock we write matches the timezone get() reads it back in
+        // (issue #69). Without this a bound anchored to a different zone — e.g.
+        // a Spell built directly from an ambient-default CarbonImmutable — is
+        // stored verbatim and later re-read as a different instant. Converting
+        // (setTimezone) preserves the instant; get() recovers it exactly.
         return [
-            $this->fromColumn => $value->from,
-            $this->toColumn => $value->to,
+            $this->fromColumn => $this->store($value->from),
+            $this->toColumn => $this->store($value->to),
         ];
+    }
+
+    private function store(?CarbonImmutable $bound): ?CarbonImmutable
+    {
+        return $bound?->setTimezone($this->timezone());
     }
 }

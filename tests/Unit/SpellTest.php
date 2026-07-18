@@ -90,6 +90,28 @@ final class SpellTest extends TestCase
         $this->assertTrue($spell->to?->equalTo($this->at('2026-06-01')));
     }
 
+    public function test_between_anchors_bare_strings_to_the_config_timezone(): void
+    {
+        // Issue #69: a bare string is parsed in the ambient default then
+        // converted to the configured spell timezone (matching
+        // BitemporalWriter::instant()), so the boundary's stored wall-clock and
+        // the read path agree on one zone. New York 00:00 is 04:00 UTC.
+        config()->set('bitemporal.spells.timezone', 'UTC');
+
+        $ambient = date_default_timezone_get();
+        date_default_timezone_set('America/New_York');
+
+        try {
+            $spell = Spell::between('2024-06-01 00:00:00', null);
+
+            $this->assertInstanceOf(CarbonImmutable::class, $spell->from);
+            $this->assertSame('UTC', $spell->from->getTimezone()->getName());
+            $this->assertSame('2024-06-01 04:00:00', $spell->from->format('Y-m-d H:i:s'));
+        } finally {
+            date_default_timezone_set($ambient);
+        }
+    }
+
     public function test_between_closed_bounds_shifts_upper(): void
     {
         $spell = Spell::between('2026-01-01', '2026-06-01', SpellBounds::Closed);
