@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Vusys\Bitemporal\Facades\TemporalLens;
 use Vusys\Bitemporal\Tests\Fixtures\Models\Product;
 use Vusys\Bitemporal\Tests\Fixtures\Models\ProductPrice;
+use Vusys\Bitemporal\Tests\Fixtures\Models\ValidTimeOnlyPrice;
 use Vusys\Bitemporal\Tests\Integration\IntegrationTestCase;
 
 final class AsOfPropagationTest extends IntegrationTestCase
@@ -87,6 +88,22 @@ final class AsOfPropagationTest extends IntegrationTestCase
         $count = TemporalLens::asOf('2026-09-01', '2026-02-01', fn () => ProductPrice::query()->whereTemporalEntity($product)->withoutLens()->count());
 
         $this->assertSame(3, $count);
+    }
+
+    public function test_ambient_known_at_is_skipped_for_valid_time_only_models(): void
+    {
+        $product = $this->makeProduct();
+
+        // A valid-time-only model reuses the price table but opts out of
+        // recorded-time tracking. Two valid segments, no recorded axis in play.
+        $this->insertPrice($product, ['amount' => 1000, 'valid_from' => '2026-01-01', 'valid_to' => '2026-06-01']);
+        $this->insertPrice($product, ['amount' => 1200, 'valid_from' => '2026-06-01', 'valid_to' => null]);
+
+        // An ambient lens carrying a knownAt must not throw here: the recorded
+        // axis simply degrades away, the valid axis still applies.
+        $amount = TemporalLens::asOf('2026-03-01', '2026-02-01', fn () => ValidTimeOnlyPrice::query()->whereTemporalEntity($product)->sole()->amount);
+
+        $this->assertSame(1000, $amount);
     }
 
     public function test_writes_ignore_the_ambient_lens(): void

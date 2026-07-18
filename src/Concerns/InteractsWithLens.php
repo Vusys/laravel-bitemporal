@@ -91,7 +91,11 @@ trait InteractsWithLens
             $this->validAt($frame->validAt);
         }
 
-        if (! $this->explicitKnownAt && $frame->knownAt instanceof CarbonImmutable) {
+        if (
+            ! $this->explicitKnownAt
+            && $frame->knownAt instanceof CarbonImmutable
+            && $this->temporalMetadata()->tracksRecordedTime
+        ) {
             $this->knownAt($frame->knownAt);
         }
     }
