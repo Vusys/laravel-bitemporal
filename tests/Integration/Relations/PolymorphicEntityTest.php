@@ -75,6 +75,19 @@ final class PolymorphicEntityTest extends IntegrationTestCase
         $this->assertCount(2, $rows);
     }
 
+    public function test_where_temporal_entity_in_with_an_empty_set_matches_nothing(): void
+    {
+        $customer = Customer::query()->create(['name' => 'Acme']);
+        $supplier = Supplier::query()->create(['name' => 'Globex']);
+        $this->seedAddress($customer, 'a');
+        $this->seedAddress($supplier, 'b');
+
+        // An empty polymorphic filter must scope to nothing, not leak the table.
+        $rows = Address::query()->whereTemporalEntityIn([])->get();
+
+        $this->assertCount(0, $rows);
+    }
+
     public function test_where_temporal_entity_of(): void
     {
         $customer = Customer::query()->create(['name' => 'Acme']);
