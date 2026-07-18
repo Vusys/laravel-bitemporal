@@ -164,6 +164,7 @@ final class OptimisticConcurrencyJourney extends Journey
         ];
     }
 
+    #[\Override]
     public function invariants(): array
     {
         return [

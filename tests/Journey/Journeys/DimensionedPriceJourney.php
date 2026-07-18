@@ -122,6 +122,7 @@ final class DimensionedPriceJourney extends Journey
         ];
     }
 
+    #[\Override]
     public function invariants(): array
     {
         return [

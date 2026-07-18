@@ -85,6 +85,7 @@ final class LensAgreementJourney extends Journey
         ];
     }
 
+    #[\Override]
     public function invariants(): array
     {
         return [

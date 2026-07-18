@@ -119,6 +119,7 @@ final class BackfillEquivalenceJourney extends Journey
         ];
     }
 
+    #[\Override]
     public function invariants(): array
     {
         return [

@@ -62,6 +62,7 @@ final class PlantedOverlapJourney extends Journey
         ];
     }
 
+    #[\Override]
     public function invariants(): array
     {
         return [

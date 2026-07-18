@@ -248,6 +248,7 @@ final class PriceTimelineJourney extends Journey
         ];
     }
 
+    #[\Override]
     public function invariants(): array
     {
         return [
@@ -389,8 +390,8 @@ final class PriceTimelineJourney extends Journey
             $from = is_string($edit['from'] ?? null) ? CarbonImmutable::parse($edit['from']) : null;
             $to = is_string($edit['to'] ?? null) ? CarbonImmutable::parse($edit['to']) : null;
 
-            $afterStart = $from === null || $at->greaterThanOrEqualTo($from);
-            $beforeEnd = $to === null || $at->lessThan($to);
+            $afterStart = ! $from instanceof CarbonImmutable || $at->greaterThanOrEqualTo($from);
+            $beforeEnd = ! $to instanceof CarbonImmutable || $at->lessThan($to);
 
             if ($afterStart && $beforeEnd) {
                 return true;
