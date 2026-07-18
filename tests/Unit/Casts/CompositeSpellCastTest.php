@@ -131,17 +131,72 @@ final class CompositeSpellCastTest extends TestCase
 
     public function test_set_writes_both_columns_from_spell(): void
     {
+        config()->set('bitemporal.spells.timezone', 'UTC');
+
         $cast = new CompositeSpellCast('vf', 'vt');
         $spell = new Spell(
-            CarbonImmutable::parse('2026-01-01 00:00:00'),
-            CarbonImmutable::parse('2026-02-01 00:00:00'),
+            CarbonImmutable::parse('2026-01-01 00:00:00', 'UTC'),
+            CarbonImmutable::parse('2026-02-01 00:00:00', 'UTC'),
         );
 
         $result = $cast->set($this->model(), 'spell', $spell, []);
 
-        // Exact array (keys, order, identical bound objects) pins ArrayItem*
-        // and ArrayItemRemoval mutants.
-        $this->assertSame(['vf' => $spell->from, 'vt' => $spell->to], $result);
+        // Exact keys/order pins ArrayItem* and ArrayItemRemoval mutants; the
+        // bounds round-trip to the same instant in the config timezone.
+        $this->assertSame(['vf', 'vt'], array_keys($result));
+        $this->assertInstanceOf(CarbonImmutable::class, $result['vf']);
+        $this->assertInstanceOf(CarbonImmutable::class, $result['vt']);
+        $this->assertTrue($spell->from->equalTo($result['vf']));
+        $this->assertTrue($spell->to->equalTo($result['vt']));
+    }
+
+    public function test_set_normalizes_bounds_to_the_config_timezone(): void
+    {
+        // Issue #69: a bound anchored to a non-config zone must be stored as the
+        // configured-TZ wall-clock, so get() (which reads offset-less strings in
+        // the config TZ) reconstructs the same instant. New York 09:00 is 14:00
+        // UTC; the persisted wall-clock must be 14:00, not a verbatim 09:00 that
+        // get() would misread as 09:00 UTC.
+        config()->set('bitemporal.spells.timezone', 'UTC');
+
+        $cast = new CompositeSpellCast('vf', 'vt');
+        $spell = new Spell(
+            CarbonImmutable::parse('2026-01-01 09:00:00', 'America/New_York'),
+            null,
+        );
+
+        $result = $cast->set($this->model(), 'spell', $spell, []);
+
+        $this->assertInstanceOf(CarbonImmutable::class, $result['vf']);
+        $this->assertSame('2026-01-01 14:00:00', $result['vf']->format('Y-m-d H:i:s'));
+        $this->assertSame('UTC', $result['vf']->getTimezone()->getName());
+        $this->assertTrue($spell->from->equalTo($result['vf']));
+    }
+
+    public function test_spell_round_trips_through_set_then_get(): void
+    {
+        // The full residual-of-#42 scenario: build a Spell whose bound is not in
+        // the config zone, persist it via set(), read it back via get() (with the
+        // offset dropped, as MySQL DATETIME / SQLite TEXT would), and assert the
+        // instant survives.
+        config()->set('bitemporal.spells.timezone', 'UTC');
+
+        $cast = new CompositeSpellCast('valid_from', 'valid_to');
+        $spell = new Spell(
+            CarbonImmutable::parse('2024-06-01 00:00:00', 'America/New_York'),
+            null,
+        );
+
+        $stored = $cast->set($this->model(), 'spell', $spell, []);
+        $storedFrom = $stored['valid_from'];
+
+        $reloaded = $this->getSpell([
+            'valid_from' => $storedFrom instanceof CarbonImmutable ? $storedFrom->format('Y-m-d H:i:s') : null,
+            'valid_to' => null,
+        ]);
+
+        $this->assertInstanceOf(CarbonImmutable::class, $reloaded->from);
+        $this->assertTrue($spell->from->equalTo($reloaded->from), 'the reloaded instant must equal the original');
     }
 
     public function test_set_returns_empty_array_for_non_spell(): void
