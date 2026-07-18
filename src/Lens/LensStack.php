@@ -26,6 +26,11 @@ final class LensStack
      */
     private array $frames = [];
 
+    /**
+     * @var array<int, int>
+     */
+    private array $jobBaselines = [];
+
     private bool $bootGuardsSuppressed = false;
 
     /**
@@ -171,6 +176,37 @@ final class LensStack
     public function reset(): void
     {
         $this->frames = [];
+    }
+
+    /**
+     * Open a job turn, remembering the current frame depth. A job dispatched
+     * while an outer asOf() frame is open (e.g. dispatchSync() inside a
+     * callback, or any sync-queue work) must keep reading through that frame,
+     * so we snapshot the depth rather than zeroing the stack the way a blind
+     * reset() would. Turns nest LIFO to cover nested synchronous dispatch.
+     */
+    public function beginJobTurn(): void
+    {
+        $this->jobBaselines[] = count($this->frames);
+    }
+
+    /**
+     * Close the most recent job turn, discarding any frames the job left open
+     * past its baseline so a leak cannot bleed into the next turn on a
+     * long-lived worker. Returns true when such a leak was trimmed. At a
+     * genuine worker-turn boundary the baseline is zero, so this behaves like
+     * the old reset()+assertEmpty pair.
+     */
+    public function endJobTurn(): bool
+    {
+        $baseline = array_pop($this->jobBaselines) ?? 0;
+        $leaked = count($this->frames) > $baseline;
+
+        if ($leaked) {
+            $this->frames = array_slice($this->frames, 0, $baseline);
+        }
+
+        return $leaked;
     }
 
     public function assertEmpty(): void
