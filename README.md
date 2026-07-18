@@ -42,19 +42,13 @@ class Product extends Model
     }
 }
 
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Vusys\Bitemporal\Bitemporal;
 
 class ProductPrice extends Model
 {
     use Bitemporal;
 
-    protected $dateFormat = 'Y-m-d H:i:s.u';
-
-    public function temporalEntity(): BelongsTo
-    {
-        return $this->belongsTo(Product::class);
-    }
+    protected string $temporalEntity = Product::class;
 }
 ```
 

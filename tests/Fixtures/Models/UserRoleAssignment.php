@@ -28,6 +28,4 @@ class UserRoleAssignment extends Pivot
     protected $table = 'user_role_assignments';
 
     protected $guarded = [];
-
-    protected $dateFormat = 'Y-m-d H:i:s.u';
 }

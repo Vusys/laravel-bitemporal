@@ -25,7 +25,6 @@ class Compensation extends Model
     protected $table = 'compensations';
 
     protected $guarded = [];
-    protected $dateFormat = 'Y-m-d H:i:s.u';
 }
 ```
 

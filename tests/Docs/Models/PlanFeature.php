@@ -27,6 +27,4 @@ class PlanFeature extends Pivot
     protected $table = 'plan_feature';
 
     protected $guarded = [];
-
-    protected $dateFormat = 'Y-m-d H:i:s.u';
 }

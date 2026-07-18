@@ -26,8 +26,6 @@ class Address extends Model
 
     protected $guarded = [];
 
-    protected $dateFormat = 'Y-m-d H:i:s.u';
-
     /**
      * @return MorphTo<Model, $this>
      */

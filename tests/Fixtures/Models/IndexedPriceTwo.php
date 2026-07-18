@@ -20,8 +20,6 @@ class IndexedPriceTwo extends Model
 
     protected $guarded = [];
 
-    protected $dateFormat = 'Y-m-d H:i:s.u';
-
     /**
      * @return BelongsTo<Product, $this>
      */

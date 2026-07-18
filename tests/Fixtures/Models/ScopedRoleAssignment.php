@@ -33,8 +33,6 @@ class ScopedRoleAssignment extends Pivot
 
     protected $guarded = [];
 
-    protected $dateFormat = 'Y-m-d H:i:s.u';
-
     /**
      * @var array<int, string>
      */

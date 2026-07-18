@@ -41,4 +41,19 @@ final class HasTemporalCastsMutationTest extends IntegrationTestCase
         $this->assertSame('immutable_datetime', $casts['recorded_to']);
         $this->assertSame('boolean', $casts['is_retraction']);
     }
+
+    public function test_a_model_without_a_declared_date_format_gets_microsecond_precision(): void
+    {
+        // ProductPrice declares no $dateFormat; the trait must supply the
+        // microsecond format so Eloquent does not truncate spells on save.
+        $this->assertSame('Y-m-d H:i:s.u', new ProductPrice()->getDateFormat());
+    }
+
+    public function test_an_explicit_date_format_overrides_the_trait_default(): void
+    {
+        $model = new ProductPrice;
+        $model->setDateFormat('Y-m-d H:i:s.v');
+
+        $this->assertSame('Y-m-d H:i:s.v', $model->getDateFormat());
+    }
 }

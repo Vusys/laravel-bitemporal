@@ -6,7 +6,7 @@ The package registers a set of Artisan commands — generators that scaffold cod
 
 ### `make:bitemporal-model`
 
-Scaffolds a temporal model: the `Bitemporal` trait, the `$dateFormat`, and the `$temporalEntity` class-string.
+Scaffolds a temporal model: the `Bitemporal` trait and the `$temporalEntity` class-string. (The trait defaults `$dateFormat` to microsecond precision, so it isn't scaffolded.)
 
 ```bash
 php artisan make:bitemporal-model ProductPrice --entity=Product
