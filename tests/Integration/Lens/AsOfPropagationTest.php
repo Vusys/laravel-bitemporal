@@ -106,6 +106,41 @@ final class AsOfPropagationTest extends IntegrationTestCase
         $this->assertSame(1000, $amount);
     }
 
+    public function test_ambient_known_at_only_frame_no_ops_for_valid_time_only_models(): void
+    {
+        $product = $this->makeProduct();
+
+        $this->insertPrice($product, ['amount' => 1000, 'valid_from' => '2026-01-01', 'valid_to' => '2026-06-01']);
+        $this->insertPrice($product, ['amount' => 1200, 'valid_from' => '2026-06-01', 'valid_to' => null]);
+
+        // Mirror of the asOf case: a knownAt-only frame degrades to a no-op for a
+        // valid-time-only model. With no valid axis to apply either, every segment
+        // is returned rather than throwing on the recorded-time guard.
+        $amounts = TemporalLens::knownAt('2026-02-01', fn () => ValidTimeOnlyPrice::query()
+            ->whereTemporalEntity($product)
+            ->orderBy('valid_from')
+            ->pluck('amount')
+            ->all());
+
+        $this->assertSame([1000, 1200], $amounts);
+    }
+
+    public function test_ambient_known_at_only_frame_still_applies_to_a_bitemporal_model(): void
+    {
+        $product = $this->seedCorrectedTimeline();
+
+        // Same frame, a bitemporal model: the recorded axis is real here, so the
+        // knownAt is honoured and the read reflects the pre-correction belief
+        // (the row recorded before 2026-03-01), not the current one.
+        $amount = TemporalLens::knownAt('2026-02-01', fn () => ProductPrice::query()
+            ->whereTemporalEntity($product)
+            ->validAt('2026-09-01')
+            ->sole()
+            ->amount);
+
+        $this->assertSame(1000, $amount);
+    }
+
     public function test_writes_ignore_the_ambient_lens(): void
     {
         CarbonImmutable::setTestNow('2026-08-01 00:00:00');
