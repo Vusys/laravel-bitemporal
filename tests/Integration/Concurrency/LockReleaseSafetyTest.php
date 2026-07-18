@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Vusys\Bitemporal\Tests\Integration\Concurrency;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
 use RuntimeException;
 use Vusys\Bitemporal\Locking\WriteLocker;
@@ -31,7 +32,7 @@ final class LockReleaseSafetyTest extends IntegrationTestCase
 
         app()->instance(WriteLocker::class, new class implements WriteLocker
         {
-            public function lockFor(Model $entity, array $dimensions, int $timeoutMs = 5000): WriteLockHandle
+            public function lockFor(Model $entity, array $dimensions, int $timeoutMs = 5000, ?ConnectionInterface $connection = null): WriteLockHandle
             {
                 return new class implements WriteLockHandle
                 {

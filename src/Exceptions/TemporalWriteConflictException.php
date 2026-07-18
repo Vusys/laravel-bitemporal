@@ -33,6 +33,11 @@ final class TemporalWriteConflictException extends TemporalException
         return new self("the database connection was swapped mid-write for {$entity}; the advisory lock can no longer be trusted");
     }
 
+    public static function lockOutsideTransaction(string $entity): self
+    {
+        return new self("refusing to take a PostgreSQL advisory write lock for {$entity} outside a transaction: pg_advisory_xact_lock would provide no mutual exclusion");
+    }
+
     public static function expectationFailed(string $column): self
     {
         return new self("optimistic check failed: the current value of '{$column}' is not what was expected; another write got there first");

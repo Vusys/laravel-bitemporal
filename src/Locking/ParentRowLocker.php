@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Vusys\Bitemporal\Locking;
 
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
 use Vusys\Bitemporal\Exceptions\TemporalWriteConflictException;
 
@@ -14,13 +15,17 @@ use Vusys\Bitemporal\Exceptions\TemporalWriteConflictException;
  */
 final class ParentRowLocker implements WriteLocker
 {
-    public function lockFor(Model $entity, array $dimensions, int $timeoutMs = 5000): WriteLockHandle
+    public function lockFor(Model $entity, array $dimensions, int $timeoutMs = 5000, ?ConnectionInterface $connection = null): WriteLockHandle
     {
-        $locked = $entity->newQueryWithoutScopes()
-            ->whereKey($entity->getKey())
+        // Take the row lock on the connection the write transaction runs on so
+        // the FOR UPDATE actually participates in that transaction (issue #67);
+        // fall back to the entity's connection when the caller did not pass one.
+        $connection ??= $entity->getConnection();
+
+        $locked = $connection->table($entity->getTable())
+            ->where($entity->getKeyName(), '=', $entity->getKey())
             ->lockForUpdate()
-            ->select($entity->getKeyName())
-            ->first();
+            ->first([$entity->getKeyName()]);
 
         if ($locked === null) {
             throw TemporalWriteConflictException::entityMissing($entity::class, $entity->getKey());

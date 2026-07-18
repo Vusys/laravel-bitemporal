@@ -6,6 +6,7 @@ namespace Vusys\Bitemporal\Tests\Integration\Writes\Mutation;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -48,7 +49,7 @@ final class BackfillMutationTest extends IntegrationTestCase
         {
             public int $calls = 0;
 
-            public function lockFor(Model $entity, array $dimensions, int $timeoutMs = 5000): WriteLockHandle
+            public function lockFor(Model $entity, array $dimensions, int $timeoutMs = 5000, ?ConnectionInterface $connection = null): WriteLockHandle
             {
                 $this->calls++;
 

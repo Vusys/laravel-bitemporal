@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 use ReflectionMethod;
+use Vusys\Bitemporal\Exceptions\TemporalWriteConflictException;
 use Vusys\Bitemporal\Locking\AdvisoryLocker;
 use Vusys\Bitemporal\Locking\ReleasableLock;
 use Vusys\Bitemporal\Locking\TransactionLockHandle;
@@ -181,17 +182,42 @@ final class AdvisoryLockerEngineTest extends IntegrationTestCase
 
         $this->startCapturing();
 
-        $handle = (new AdvisoryLocker)->lockFor($product, $dimensions, 5000);
+        // pg_advisory_xact_lock is only meaningful inside a transaction; the
+        // locker now refuses to run outside one (issue #67), so acquire within
+        // an explicit transaction that mirrors the writer's real usage.
+        $connection = DB::connection();
+        $connection->beginTransaction();
 
-        $this->assertInstanceOf(TransactionLockHandle::class, $handle);
+        try {
+            $handle = (new AdvisoryLocker)->lockFor($product, $dimensions, 5000, $connection);
 
-        // The pg_advisory_xact_lock(hashtextextended(?, 0)) statement ran with
-        // the key binding. Kills MethodCallRemoval (no statement) and
-        // ArrayItemRemoval (bindings -> []).
-        $statement = $this->firstStatementContaining('pg_advisory_xact_lock');
-        $this->assertNotNull($statement);
-        $this->assertStringContainsString('hashtextextended(?, 0)', $statement[0]);
-        $this->assertSame([$key], $statement[1]);
+            $this->assertInstanceOf(TransactionLockHandle::class, $handle);
+
+            // The pg_advisory_xact_lock(hashtextextended(?, 0)) statement ran with
+            // the key binding. Kills MethodCallRemoval (no statement) and
+            // ArrayItemRemoval (bindings -> []).
+            $statement = $this->firstStatementContaining('pg_advisory_xact_lock');
+            $this->assertNotNull($statement);
+            $this->assertStringContainsString('hashtextextended(?, 0)', $statement[0]);
+            $this->assertSame([$key], $statement[1]);
+        } finally {
+            $connection->rollBack();
+        }
+    }
+
+    public function test_pgsql_refuses_to_lock_outside_a_transaction(): void
+    {
+        $this->requireDriver('pgsql');
+
+        $product = $this->makeProduct();
+
+        // Outside a transaction pg_advisory_xact_lock releases at statement end
+        // and SET LOCAL is a no-op — the "lock" would give zero mutual
+        // exclusion. The locker must refuse rather than lock nothing (#67).
+        $this->expectException(TemporalWriteConflictException::class);
+        $this->expectExceptionMessageMatches('/outside a transaction/');
+
+        (new AdvisoryLocker)->lockFor($product, ['region' => 'eu'], 5000);
     }
 
     public function test_sqlite_falls_back_to_a_parent_row_lock(): void
