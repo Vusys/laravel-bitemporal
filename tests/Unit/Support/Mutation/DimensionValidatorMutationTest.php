@@ -69,4 +69,19 @@ final class DimensionValidatorMutationTest extends TestCase
             ['currency' => 'USD'],
         );
     }
+
+    // Issue #48: a dimension present in attributes but absent from the tuple is
+    // an incomplete-dimension case (assertComplete's job). reconcileAttributes
+    // must NOT throw a misleading conflict against a null tuple value; it leaves
+    // the key in place so assertComplete can raise the right error.
+    public function test_reconcile_defers_missing_tuple_dimension_to_assert_complete(): void
+    {
+        $result = DimensionValidator::reconcileAttributes(
+            ['currency'],
+            [], // currency omitted from the tuple
+            ['currency' => 'GBP', 'amount' => 100],
+        );
+
+        $this->assertSame(['currency' => 'GBP', 'amount' => 100], $result);
+    }
 }

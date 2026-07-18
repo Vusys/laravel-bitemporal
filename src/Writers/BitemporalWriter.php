@@ -256,8 +256,12 @@ final readonly class BitemporalWriter
      */
     private function run(\Closure $windowResolver, \Closure $transform, array $attributes, ?bool $compact, \Closure $starting, \Closure $committed, ?array $expectedCurrentAttributes = null, ?string $idempotencyKey = null, string $operation = '', array $idempotencyInputs = []): TemporalWriteCommitted
     {
-        $this->assertNoForbiddenAttributes($attributes);
+        // Completeness first: a dimension missing from the tuple is the more
+        // fundamental error, so surface "incomplete dimension" before the
+        // writer-managed-attribute guard would report the same column as merely
+        // "forbidden in attributes" (issue #48).
         DimensionValidator::assertComplete($this->declaredDimensions, $this->dimensions);
+        $this->assertNoForbiddenAttributes($attributes);
 
         $handle = null;
         $writeStart = microtime(true);

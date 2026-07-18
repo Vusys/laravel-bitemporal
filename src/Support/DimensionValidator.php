@@ -49,7 +49,16 @@ final class DimensionValidator
                 continue;
             }
 
-            if (! AttributeEquality::equals($attributes[$column], $tuple[$column] ?? null)) {
+            // A dimension present in the attributes payload but absent from the
+            // tuple is an *incomplete dimension* error, which assertComplete
+            // raises. Comparing value-vs-null here would instead throw a
+            // misleading "conflict" and mask the real diagnostic (issue #48), so
+            // leave it for assertComplete rather than reconciling against null.
+            if (! array_key_exists($column, $tuple)) {
+                continue;
+            }
+
+            if (! AttributeEquality::equals($attributes[$column], $tuple[$column])) {
                 throw TemporalMissingDimensionException::conflict($column);
             }
 
