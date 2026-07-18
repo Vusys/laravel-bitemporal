@@ -45,10 +45,23 @@ final readonly class CompositeSpellCast implements CastsAttributes
         }
 
         if (is_string($value) || is_int($value)) {
-            return CarbonImmutable::parse($value);
+            // MySQL DATETIME / SQLite TEXT columns store no offset, so parse in
+            // the configured spell timezone (the same one the read/query path
+            // normalises to) rather than the ambient default. Otherwise a runtime
+            // default differing from storage reconstructs a different instant and
+            // silently corrupts every boundary comparison. A string that already
+            // carries an offset keeps it — the timezone only fills the gap.
+            return CarbonImmutable::parse($value, $this->timezone());
         }
 
         return null;
+    }
+
+    private function timezone(): string
+    {
+        $timezone = config('bitemporal.spells.timezone', 'UTC');
+
+        return is_string($timezone) ? $timezone : 'UTC';
     }
 
     /**

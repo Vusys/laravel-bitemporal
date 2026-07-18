@@ -49,6 +49,29 @@ final class CompositeSpellCastTest extends TestCase
         $this->assertSame('2026-06-01 17:30:00', $spell->to->format('Y-m-d H:i:s'));
     }
 
+    public function test_get_parses_strings_in_the_configured_spell_timezone(): void
+    {
+        config()->set('bitemporal.spells.timezone', 'UTC');
+
+        $ambient = date_default_timezone_get();
+        date_default_timezone_set('America/New_York');
+
+        try {
+            $spell = $this->getSpell([
+                'valid_from' => '2026-01-01 12:00:00',
+                'valid_to' => null,
+            ]);
+
+            // Stored offset-less strings are UTC; the reconstructed instant must
+            // be UTC noon regardless of the ambient/default timezone. Under the
+            // bug it would be parsed as New York noon (17:00 UTC).
+            $this->assertInstanceOf(CarbonImmutable::class, $spell->from);
+            $this->assertSame('2026-01-01T12:00:00+00:00', $spell->from->toIso8601String());
+        } finally {
+            date_default_timezone_set($ambient);
+        }
+    }
+
     public function test_get_accepts_datetime_instances(): void
     {
         $spell = $this->getSpell([
