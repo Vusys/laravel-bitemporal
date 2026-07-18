@@ -42,6 +42,8 @@ $price = $product->prices()
 
 `sole()` is the temporal idiom for "there should be exactly one row at this point". It returns that single model, or throws `TemporalCardinalityException` — `expectedOneFoundNone` or `expectedOneFoundMany` — so a broken timeline surfaces loudly instead of silently returning the wrong row. On a `bitemporalOne()` relation, `sole()` returns `null` for "none" unless you used `bitemporalOneOrFail()`.
 
+> **Pin single-result relations.** A `bitemporalOne()` relation only means "one row" once the timeline is narrowed to one — pin it with `validAt()`/`knownAt()`/`currentKnowledge()`, or read it inside an [`asOf()` lens frame](07-as-of-lens.md). Read unpinned (`$product->price` outside any lens), the whole timeline matches; property access then resolves to a **deterministic** row (latest valid period, then latest belief, then key) rather than an arbitrary one, but that is a stability guard, not the value you almost certainly meant. Prefer `sole()`, which raises `expectedOneFoundMany` when the read wasn't narrow enough.
+
 ## Spell predicates
 
 Beyond a single instant, you can query whole windows. Each `valid*` method works on the valid spell; each `recorded*` method on the recorded spell (bitemporal only). All bounds are half-open `[from, to)`; a `null` upper bound means open-ended.
