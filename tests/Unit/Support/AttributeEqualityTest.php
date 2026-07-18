@@ -17,9 +17,27 @@ final class AttributeEqualityTest extends TestCase
         $this->assertTrue(AttributeEquality::equals(null, null));
         $this->assertTrue(AttributeEquality::equals(true, true));
 
-        $this->assertFalse(AttributeEquality::equals(1000, '1000'));
+        // Non-numeric strings stay strict; a numeric value never equals null/bool.
+        $this->assertFalse(AttributeEquality::equals('GBP', 'USD'));
         $this->assertFalse(AttributeEquality::equals(1, true));
         $this->assertFalse(AttributeEquality::equals(0, null));
+    }
+
+    public function test_numeric_values_compare_by_value_across_types(): void
+    {
+        // Issue #50: driver type drift ("10.00" un-cast decimal vs 10 cast int,
+        // or "0" vs 0) must not register as a change and churn the timeline.
+        $this->assertTrue(AttributeEquality::equals(1000, '1000'));
+        $this->assertTrue(AttributeEquality::equals('10.00', 10));
+        $this->assertTrue(AttributeEquality::equals('0', 0));
+        $this->assertTrue(AttributeEquality::equals(2.5, '2.50'));
+
+        // Genuinely different numbers still differ.
+        $this->assertFalse(AttributeEquality::equals('10.00', 10.01));
+        $this->assertFalse(AttributeEquality::equals(1, 2));
+
+        // A numeric string vs a non-numeric string is not numeric-numeric.
+        $this->assertFalse(AttributeEquality::equals('10', 'ten'));
     }
 
     public function test_datetimes_compared_by_instant(): void

@@ -38,7 +38,7 @@ Returned by `sole()` as `expectedOneFoundNone` / `expectedOneFoundMany`, so a br
 
 ### `TemporalWriteConflictException`
 
-The concurrency surface. `expectation_failed` is the optimistic-concurrency check (`expectedCurrentAttributes`); `idempotency_conflict` fires when an [idempotency key](05-writing.md#idempotent-writes) is reused with different parameters; `lock_timeout` and `entity_missing` come from the locking strategy (see [Configuration](09-configuration.md)).
+The concurrency surface. `expectation_failed` is the optimistic-concurrency check (`expectedCurrentAttributes`); `idempotency_conflict` (`idempotencyKeyReused`) fires when an [idempotency key](05-writing.md#idempotent-writes) is reused with different parameters; `idempotencySnapshotUnreadable` fires when a claimed key's stored result cannot be decoded — the write is *not* silently re-run; `lock_timeout` and `entity_missing` come from the locking strategy (see [Configuration](09-configuration.md)).
 
 ### `TemporalOnlineDdlException`
 
@@ -61,7 +61,7 @@ factory methods — the factory name plus the message encode the scenario (there
 | `TemporalMissingDimensionException` | `pendingWhere`, `forbiddenAttribute`, `incomplete`, `unknownDimension`, `conflict` |
 | `TemporalOverlapException` | `betweenSegments`, `afterBackfillAudit` |
 | `TemporalCardinalityException` | `expectedOneFoundMany`, `expectedOneFoundNone`, `noAssignmentToCorrect`, `noAssignmentToDetach` |
-| `TemporalWriteConflictException` | `entityMissing`, `clockRegressed`, `lockTimeout`, `deadlock`, `connectionChanged`, `expectationFailed`, `idempotencyKeyReused` |
+| `TemporalWriteConflictException` | `entityMissing`, `clockRegressed`, `lockTimeout`, `deadlock`, `connectionChanged`, `expectationFailed`, `idempotencyKeyReused`, `idempotencySnapshotUnreadable` |
 | `TemporalUnsupportedDatabaseException` | `btreeGistMissing`, `advisoryLocksUnsupported`, `engineVersionBelowMinimum` |
 | `TemporalOnlineDdlException` | `insideTransaction`, `recreateFailed` |
 | `TemporalDomainException` | `invariant`, `clockSkew` |

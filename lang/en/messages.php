@@ -49,6 +49,7 @@ return [
         'entity_missing' => 'Cannot lock temporal entity :model#:id: row not found.',
         'expectation_failed' => "optimistic check failed: the current value of ':column' is not what was expected; another write got there first",
         'idempotency_conflict' => "idempotency key ':key' was already used with different parameters",
+        'idempotency_snapshot_unreadable' => "idempotency key ':key' has a stored result that could not be read; refusing to silently re-run the write",
     ],
 
     'unsupported_database' => [

@@ -54,10 +54,14 @@ final class IdempotencyStore
             throw TemporalWriteConflictException::idempotencyKeyReused($key);
         }
 
-        $decoded = json_decode((string) ($row->result_snapshot ?? '{}'), true);
+        $decoded = json_decode((string) ($row->result_snapshot ?? ''), true);
 
         if (! is_array($decoded)) {
-            return null;
+            // The row exists (this key was already claimed) but its stored result
+            // is unreadable. This is NOT a miss: returning null would re-execute a
+            // write that already committed once, double-applying it. Distinguish
+            // "unreadable row" from "no row" and fail loudly.
+            throw TemporalWriteConflictException::idempotencySnapshotUnreadable($key);
         }
 
         return [

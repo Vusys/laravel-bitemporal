@@ -364,6 +364,11 @@ final class SpellTest extends TestCase
         $this->assertFalse($late->precedes($early));
         $this->assertFalse($this->spell('2026-01-01', null)->precedes($late));
         $this->assertFalse($early->precedes($this->spell(null, '2026-09-01')));
+
+        // Inclusive contract (issue #50): adjacent half-open spells both meet AND
+        // precede — precedes() uses `<=`, so it is true at the touching boundary.
+        $this->assertTrue($early->meets($late));
+        $this->assertTrue($early->precedes($late));
     }
 
     public function test_is_adjacent(): void

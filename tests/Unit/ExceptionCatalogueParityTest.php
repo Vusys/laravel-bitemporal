@@ -45,7 +45,6 @@ final class ExceptionCatalogueParityTest extends TestCase
      * @var array<string, string>
      */
     private const array RESERVED_FACTORIES = [
-        'TemporalDomainException::invariant' => 'defensive "should never happen" assertion; kept ready for algorithm invariants even when no site currently trips it',
         'TemporalWriteConflictException::clockRegressed' => 'reserved for the clock-regression write guard',
         'TemporalUnsupportedDatabaseException::advisoryLocksUnsupported' => 'wired by #16/#17 (engine grammars + advisory-lock fallback)',
         'TemporalUnsupportedDatabaseException::engineVersionBelowMinimum' => 'wired by #13/#16 (engine-version boot guard)',
