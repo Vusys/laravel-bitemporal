@@ -1,0 +1,73 @@
+name: Set up database
+description: >-
+  Start the target database (unless sqlite), wait for it to become healthy, and
+  export the DB_* environment variables the test suite reads. Only the requested
+  backend is provisioned, keeping one container per job.
+
+inputs:
+  db:
+    description: Database backend — sqlite, mysql, mariadb or pgsql.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Start ${{ inputs.db }}
+      if: inputs.db != 'sqlite'
+      shell: bash
+      run: |
+        case "${{ inputs.db }}" in
+          mysql)
+            docker run -d --name db -p 127.0.0.1:33306:3306 \
+              -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -e MYSQL_DATABASE=testing \
+              --health-cmd="mysqladmin ping" --health-interval=10s \
+              --health-timeout=5s --health-retries=5 mysql:8.0
+            ;;
+          mariadb)
+            docker run -d --name db -p 127.0.0.1:33306:3306 \
+              -e MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=yes -e MARIADB_DATABASE=testing \
+              --health-cmd="healthcheck.sh --connect --innodb_initialized" \
+              --health-interval=10s --health-timeout=5s --health-retries=5 mariadb:10.11
+            ;;
+          pgsql)
+            docker run -d --name db -p 127.0.0.1:54320:5432 \
+              -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=testing \
+              --health-cmd=pg_isready --health-interval=10s \
+              --health-timeout=5s --health-retries=5 postgres:16
+            ;;
+        esac
+
+    - name: Wait for ${{ inputs.db }} to be healthy
+      if: inputs.db != 'sqlite'
+      shell: bash
+      run: |
+        for i in $(seq 1 30); do
+          status=$(docker inspect --format '{{.State.Health.Status}}' db 2>/dev/null || echo missing)
+          if [ "$status" = "healthy" ]; then
+            echo "db is healthy"
+            exit 0
+          fi
+          echo "waiting for db (status: $status)..."
+          sleep 2
+        done
+        echo "db failed to become healthy"
+        docker logs db || true
+        exit 1
+
+    - name: Export DB_* environment
+      shell: bash
+      run: |
+        {
+          echo "DB_CONNECTION=${{ inputs.db }}"
+          echo "DB_DATABASE=testing"
+          echo "DB_HOST=127.0.0.1"
+          if [ "${{ inputs.db }}" = "pgsql" ]; then
+            echo "DB_PORT=54320"
+            echo "DB_USERNAME=postgres"
+            echo "DB_PASSWORD=postgres"
+          else
+            echo "DB_PORT=33306"
+            echo "DB_USERNAME=root"
+            echo "DB_PASSWORD="
+          fi
+        } >> "$GITHUB_ENV"
