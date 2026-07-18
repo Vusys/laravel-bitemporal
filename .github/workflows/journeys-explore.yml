@@ -1,0 +1,58 @@
+name: journeys-explore
+
+# On-demand high-shuffle journey exploration across the database matrix. The
+# tests workflow runs journeys at 25 shuffles on every PR; trigger this one by
+# hand (Actions → Run workflow) to crank JOURNEY_SHUFFLES far higher and, with
+# RUNABOUT_RANDOMIZE=1, explore fresh seeds so rare orderings surface. A failure
+# prints the shrunk trail and a RUNABOUT_SEED / RUNABOUT_TRAIL replay line for a
+# deterministic local repro.
+
+on:
+  workflow_dispatch:
+    inputs:
+      shuffles:
+        description: 'Shuffles per journey'
+        required: false
+        default: '500'
+
+permissions:
+  contents: read
+
+jobs:
+  journeys:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [sqlite, mysql, mariadb, pgsql]
+
+    name: journeys · ${{ matrix.db }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up ${{ matrix.db }}
+        uses: ./.github/actions/setup-database
+        with:
+          db: ${{ matrix.db }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: dom, curl, libxml, mbstring, pdo, pdo_sqlite, pdo_mysql, pdo_pgsql, bcmath
+          coverage: none
+
+      - name: Install dependencies
+        run: |
+          composer config policy.advisories.block false
+          composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Run journeys (${{ matrix.db }})
+        run: vendor/bin/phpunit --group journey
+        env:
+          JOURNEY_SHUFFLES: ${{ github.event.inputs.shuffles || '500' }}
+          # Explore fresh seeds each run; a failure still prints its seed to replay.
+          RUNABOUT_RANDOMIZE: '1'
+          # Print a per-journey trail-coverage summary (orderings explored / missed).
+          RUNABOUT_COVERAGE: '1'
