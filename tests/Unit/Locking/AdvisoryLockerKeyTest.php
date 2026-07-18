@@ -107,31 +107,31 @@ final class AdvisoryLockerKeyTest extends TestCase
         $model = $this->model('t', 1, 'm');
         $dimensions = ['region' => 'eu', 'channel' => 'web'];
 
-        // Reference: ksort -> json_encode -> sha1 -> first 24 chars.
-        $expectedHash = substr(sha1((string) json_encode(['channel' => 'web', 'region' => 'eu'])), 0, 24);
-        $expected = 'temporal:t:m:1:'.$expectedHash;
+        // Reference: implode the sorted composite -> sha1 -> first 40 chars.
+        $composite = implode('|', ['t', 'm', '1', (string) json_encode(['channel' => 'web', 'region' => 'eu'])]);
+        $expected = 'temporal:'.substr(sha1($composite), 0, 40);
 
         $key = $this->key($model, $dimensions);
 
-        // Exact string pins the concat operands AND their order (Concat /
-        // ConcatOperandRemoval), the prefix literal, the hash value, and the
-        // id segment all at once.
+        // Exact string pins the composite operands AND their order, the prefix
+        // literal, and the digest length/offset all at once.
         $this->assertSame($expected, $key);
-        $this->assertStringStartsWith('temporal:t:m:1:', $key);
+        $this->assertStringStartsWith('temporal:', $key);
     }
 
-    public function test_hash_segment_is_sha1_truncated_to_exactly_24_chars(): void
+    public function test_digest_segment_is_sha1_truncated_to_exactly_40_chars(): void
     {
         $model = $this->model('t', 1, 'm');
         $dimensions = ['channel' => 'web'];
 
         $key = $this->key($model, $dimensions);
-        $hash = substr($key, strlen('temporal:t:m:1:'));
+        $digest = substr($key, strlen('temporal:'));
 
-        // UnwrapSubstr (full 40-char sha1), Increment/Decrement on the length
-        // (23/25) and on the offset (-1/1) all change this segment.
-        $this->assertSame(24, strlen($hash));
-        $this->assertSame(substr(sha1((string) json_encode(['channel' => 'web'])), 0, 24), $hash);
+        // UnwrapSubstr (full 40-char sha1 already, so length pins the offset),
+        // Increment/Decrement on the length (39/41) change this segment.
+        $this->assertSame(40, strlen($digest));
+        $composite = implode('|', ['t', 'm', '1', (string) json_encode(['channel' => 'web'])]);
+        $this->assertSame(substr(sha1($composite), 0, 40), $digest);
     }
 
     public function test_dimension_key_order_does_not_change_the_key(): void
@@ -168,49 +168,66 @@ final class AdvisoryLockerKeyTest extends TestCase
         );
     }
 
-    public function test_integer_id_is_stringified_into_the_key(): void
+    public function test_table_and_morph_class_contribute_to_the_key(): void
     {
-        $key = $this->key($this->model('t', 42, 'm'), ['x' => 1]);
+        $base = $this->key($this->model('t', 1, 'm'), ['x' => 1]);
 
-        // is_int($id) || is_string($id) must be true for an int id; the various
-        // Logical* / Ternary mutants would drop the id and leave 'temporal:t:m::'.
-        $this->assertStringContainsString(':m:42:', $key);
-        $this->assertStringNotContainsString(':m::', $key);
+        // Both feed the digest, so changing either must change the key. Under the
+        // old truncating scheme a long class name could shear these off entirely.
+        $this->assertNotSame($base, $this->key($this->model('t2', 1, 'm'), ['x' => 1]));
+        $this->assertNotSame($base, $this->key($this->model('t', 1, 'm2'), ['x' => 1]));
     }
 
-    public function test_string_id_is_included_in_the_key(): void
+    public function test_id_contributes_to_the_key(): void
     {
-        $key = $this->key($this->model('t', 'sku-9', 'm'), ['x' => 1]);
-
-        $this->assertStringContainsString(':m:sku-9:', $key);
+        // is_int($id) || is_string($id) must be true for an int/string id, so the
+        // id feeds the digest; the Logical*/Ternary mutants that drop it would
+        // make these collide.
+        $this->assertNotSame(
+            $this->key($this->model('t', 42, 'm'), ['x' => 1]),
+            $this->key($this->model('t', 43, 'm'), ['x' => 1]),
+        );
+        $this->assertNotSame(
+            $this->key($this->model('t', 'sku-9', 'm'), ['x' => 1]),
+            $this->key($this->model('t', 'sku-8', 'm'), ['x' => 1]),
+        );
     }
 
-    public function test_non_int_non_string_id_yields_an_empty_segment(): void
+    public function test_non_int_non_string_id_collapses_to_an_empty_segment(): void
     {
         // A float id is neither int nor string: the ternary must collapse it to
-        // ''. This kills LogicalOrAllSubExprNegation (!is_int || !is_string
-        // would be true here and inject '1.5') and the Ternary swap.
-        $key = $this->key($this->model('t', 1.5, 'm'), ['x' => 1]);
+        // '', so it keys identically to an explicit empty-string id and the float
+        // value never leaks into the digest input.
+        $floatKey = $this->key($this->model('t', 1.5, 'm'), ['x' => 1]);
 
-        $this->assertStringContainsString(':m::', $key);
-        $this->assertStringNotContainsString('1.5', $key);
+        $this->assertSame($this->key($this->model('t', '', 'm'), ['x' => 1]), $floatKey);
+        // If the float were stringified to '1.5', it would differ from ''.
+        $this->assertNotSame($this->key($this->model('t', '1.5', 'm'), ['x' => 1]), $floatKey);
     }
 
-    public function test_key_is_capped_at_64_characters(): void
+    public function test_key_stays_within_the_get_lock_budget_for_long_names(): void
     {
-        $longTable = str_repeat('long_table_name_', 8); // 128 chars, key >> 64
-        $model = $this->model($longTable, 1, 'morph');
+        // 128-char table + long morph class: the old substr-to-64 form would have
+        // sheared the id/hash off the end. The digest form is always 49 chars.
+        $longTable = str_repeat('long_table_name_', 8);
+        $key = $this->key($this->model($longTable, 1, 'a_very_long_morph_class_name_that_would_blow_the_budget'), ['x' => 1]);
 
-        $key = $this->key($model, ['x' => 1]);
+        $this->assertSame(49, strlen($key));
+        $this->assertLessThanOrEqual(64, strlen($key));
+        $this->assertStringStartsWith('temporal:', $key);
+    }
 
-        // DecrementInteger (0,63), IncrementInteger (0,65) and UnwrapSubstr
-        // (uncapped) all change the length; offset mutants (1 / -1) change the
-        // leading character.
-        $this->assertSame(64, strlen($key));
-        $this->assertStringStartsWith('temporal:long_table_name_', $key);
+    public function test_long_named_entities_no_longer_collide_via_truncation(): void
+    {
+        // Regression for #49: under the old scheme these two long-named entities
+        // produced the same 64-char-truncated key (the discriminating id was
+        // sheared off), silently sharing one MySQL GET_LOCK. They must differ now.
+        $prefix = str_repeat('very_long_table_name_', 4); // 84 chars — pushes id past char 64
 
-        $expected = substr('temporal:'.$longTable.':morph:1:'.substr(sha1((string) json_encode(['x' => 1])), 0, 24), 0, 64);
-        $this->assertSame($expected, $key);
+        $this->assertNotSame(
+            $this->key($this->model($prefix, 111111111, 'm'), ['x' => 1]),
+            $this->key($this->model($prefix, 222222222, 'm'), ['x' => 1]),
+        );
     }
 
     public function test_sorted_keys_ksorts_and_keeps_every_entry(): void
