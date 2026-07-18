@@ -259,23 +259,30 @@ final readonly class BitemporalWriter
         $this->assertNoForbiddenAttributes($attributes);
         DimensionValidator::assertComplete($this->declaredDimensions, $this->dimensions);
 
-        if ($idempotencyKey !== null) {
-            $replay = $this->replayIdempotent($idempotencyKey, $operation, $idempotencyInputs, $committed);
-
-            if ($replay instanceof TemporalWriteCommitted) {
-                return $replay;
-            }
-        }
-
         $handle = null;
         $writeStart = microtime(true);
+        $wasReplay = false;
 
         try {
-            $result = $this->connection()->transaction(function () use (&$handle, $windowResolver, $transform, $attributes, $compact, $starting, $committed, $expectedCurrentAttributes): TemporalWriteCommitted {
+            $result = $this->connection()->transaction(function () use (&$handle, &$wasReplay, $windowResolver, $transform, $attributes, $compact, $starting, $committed, $expectedCurrentAttributes, $idempotencyKey, $operation, $idempotencyInputs): TemporalWriteCommitted {
                 // A prior deadlock-retry attempt may have left a session-scoped
                 // advisory lock held; acquireLock() releases it before
                 // re-acquiring so GET_LOCK stays balanced across retries.
                 $handle = $this->acquireLock($handle);
+
+                // The idempotency check runs *inside* the lock and transaction so
+                // check-then-act is atomic. Concurrent same-key requests serialize
+                // on the lock; once the first commits, the second finds the stored
+                // key and replays instead of applying the write a second time.
+                if ($idempotencyKey !== null) {
+                    $replay = $this->replayIdempotent($idempotencyKey, $operation, $idempotencyInputs, $committed);
+
+                    if ($replay instanceof TemporalWriteCommitted) {
+                        $wasReplay = true;
+
+                        return $replay;
+                    }
+                }
 
                 $recordedAt = $this->captureRecordedAt();
                 $currentModels = $this->loadCurrentKnown();
@@ -322,12 +329,29 @@ final readonly class BitemporalWriter
 
                 $this->assertNoCurrentOverlaps();
 
-                return $committed($recordedAt, $rowsClosed, $rowsInserted, $compacted);
+                $result = $committed($recordedAt, $rowsClosed, $rowsInserted, $compacted);
+
+                // Record the key inside the same transaction and lock so it is
+                // durable the instant this commits — no post-commit window where
+                // a concurrent retry could slip past the check and double-apply.
+                if ($idempotencyKey !== null) {
+                    $this->recordIdempotent($idempotencyKey, $operation, $idempotencyInputs, $result);
+                }
+
+                return $result;
             }, $this->deadlockRetryAttempts());
         } catch (QueryException $exception) {
             throw $this->translateDeadlock($exception);
         } finally {
             $handle?->release();
+        }
+
+        // A replay reconstructs the original committed result. The original write
+        // already emitted its metrics and dispatched its committed event, so a
+        // replay must do neither again — otherwise every idempotent retry would
+        // write a fresh audit row and double-count metrics for a no-op.
+        if ($wasReplay) {
+            return $result;
         }
 
         $metrics = $this->metrics();
@@ -337,10 +361,6 @@ final readonly class BitemporalWriter
                 (microtime(true) - $writeStart) * 1000.0,
                 $this->metricTags($operation),
             );
-        }
-
-        if ($idempotencyKey !== null) {
-            $this->recordIdempotent($idempotencyKey, $operation, $idempotencyInputs, $result);
         }
 
         // The transaction has committed by the time control returns here; firing

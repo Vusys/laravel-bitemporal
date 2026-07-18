@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Vusys\Bitemporal\Tests\Integration\Concurrency;
 
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use Vusys\Bitemporal\Events\TemporalCorrectionCommitted;
 use Vusys\Bitemporal\Exceptions\TemporalWriteConflictException;
 use Vusys\Bitemporal\Tests\Fixtures\Models\ProductPrice;
 use Vusys\Bitemporal\Tests\Integration\IntegrationTestCase;
@@ -30,6 +33,30 @@ final class IdempotencyKeyTest extends IntegrationTestCase
             $second->recordedAt->format('Y-m-d H:i:s.u'),
             'replay must return the original recordedAt',
         );
+    }
+
+    public function test_replay_does_not_redispatch_the_committed_event(): void
+    {
+        Event::fake([TemporalCorrectionCommitted::class]);
+
+        $product = $this->makeProduct();
+
+        $product->prices()->correct(['amount' => 1500], '2026-01-01', null, idempotencyKey: 'job-evt');
+        $product->prices()->correct(['amount' => 1500], '2026-01-01', null, idempotencyKey: 'job-evt');
+
+        // The replay is a no-op: the committed event (and therefore audit rows /
+        // metrics) must fire exactly once across the original write and replay.
+        Event::assertDispatchedTimes(TemporalCorrectionCommitted::class, 1);
+    }
+
+    public function test_replay_stores_the_idempotency_key_exactly_once(): void
+    {
+        $product = $this->makeProduct();
+
+        $product->prices()->correct(['amount' => 1500], '2026-01-01', null, idempotencyKey: 'job-once');
+        $product->prices()->correct(['amount' => 1500], '2026-01-01', null, idempotencyKey: 'job-once');
+
+        $this->assertSame(1, DB::table('temporal_idempotency_keys')->where('key', 'job-once')->count());
     }
 
     public function test_same_key_different_params_throws(): void
