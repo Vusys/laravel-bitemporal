@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Vusys\Bitemporal\Idempotency;
 
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterval;
 use Illuminate\Database\ConnectionInterface;
 use Vusys\Bitemporal\Exceptions\TemporalWriteConflictException;
 
@@ -36,7 +37,7 @@ final class IdempotencyStore
      *
      * @return array{recorded_at: string, closed_ids: array<int, int|string>, inserted_ids: array<int, int|string>, compacted: bool}|null
      */
-    public function find(ConnectionInterface $connection, string $model, ?string $entityType, string $entityId, string $key, string $hash, string $window): ?array
+    public function find(ConnectionInterface $connection, string $model, ?string $entityType, string $entityId, string $key, string $hash, CarbonInterval $window): ?array
     {
         $row = $connection->table(self::TABLE)
             ->where('model', $model)
