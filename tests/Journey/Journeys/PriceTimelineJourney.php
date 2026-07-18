@@ -17,17 +17,22 @@ use Vusys\Runabout\Step;
 /**
  * A proof-of-concept journey over a single product's bitemporal price timeline.
  *
- * The shuffler interleaves forward edits, retroactive corrections, retractions
- * and clock advances in orders we never hand-write. Because "advance the clock"
- * is an ordinary step, record time (when we learnt something) and valid time
- * (when it is true) drift apart differently on every trail — which is exactly
- * the surface where bitemporal write bugs hide.
+ * The shuffler interleaves forward edits, retroactive corrections, retractions,
+ * timeline ends, whole-timeline supersessions and clock advances in orders we
+ * never hand-write. Because "advance the clock" is an ordinary step, record time
+ * (when we learnt something) and valid time (when it is true) drift apart
+ * differently on every trail — which is exactly the surface where bitemporal
+ * write bugs hide. Each mutating step also draws a compaction preference, so
+ * segment-coalescing runs (or is suppressed) in unplanned combinations too.
  *
  * The invariants below encode the properties that must survive any ordering:
  *  - current knowledge never holds two overlapping valid spans for one entity;
  *  - physical history only ever grows (writes never mutate a row in place);
  *  - what we believed as-of an early instant (t0) is frozen for good — a later
- *    retroactive edit must not rewrite the past belief.
+ *    retroactive edit must not rewrite the past belief;
+ *  - the current value at a fixed historical instant only ever moves when a step
+ *    actually edits a window covering it — clock advances and compaction never
+ *    disturb it.
  */
 final class PriceTimelineJourney extends Journey
 {
@@ -60,6 +65,7 @@ final class PriceTimelineJourney extends Journey
                         ['amount' => $ctx->randomInt(1, 5) * 100],
                         self::START,
                     );
+                    $this->recordEdit($ctx, CarbonImmutable::parse(self::START), null);
 
                     // Freeze the belief as known at the anchor instant, then step
                     // off it by a hair so every later write records strictly after.
@@ -95,8 +101,12 @@ final class PriceTimelineJourney extends Journey
                     $ctx->remember('fc valid from', $validFrom);
                     $ctx->remember('fc amount', $amount);
                     $ctx->remember('fc rejected', $this->attempt(
-                        fn () => $product->prices()->changeEffectiveFrom(['amount' => $amount], $validFrom),
+                        fn () => $product->prices()->changeEffectiveFrom(['amount' => $amount], $validFrom, $this->drawCompact($ctx)),
                     ));
+
+                    if ($ctx->get('fc rejected') === false) {
+                        $this->recordEdit($ctx, $validFrom, null);
+                    }
                 })
                 ->assertWhen(
                     fn (Context $ctx): bool => $ctx->get('fc rejected') === false,
@@ -128,8 +138,12 @@ final class PriceTimelineJourney extends Journey
                     $ctx->remember('corr to', $to);
                     $ctx->remember('corr amount', $amount);
                     $ctx->remember('corr rejected', $this->attempt(
-                        fn () => $product->prices()->correct(['amount' => $amount], $from, $to),
+                        fn () => $product->prices()->correct(['amount' => $amount], $from, $to, $this->drawCompact($ctx)),
                     ));
+
+                    if ($ctx->get('corr rejected') === false) {
+                        $this->recordEdit($ctx, $from, $to);
+                    }
                 })
                 ->assertWhen(
                     fn (Context $ctx): bool => $ctx->get('corr rejected') === false,
@@ -160,7 +174,76 @@ final class PriceTimelineJourney extends Journey
                     $from = CarbonImmutable::parse(self::START)->addDays($ctx->randomInt(0, 400));
                     $to = $from->addDays($ctx->randomInt(1, 120));
 
-                    $this->attempt(fn () => $product->prices()->retract($from, $to));
+                    $rejected = $this->attempt(fn () => $product->prices()->retract($from, $to));
+
+                    if (! $rejected) {
+                        $this->recordEdit($ctx, $from, $to);
+                    }
+                }),
+
+            // End the open-ended fact: nothing may remain valid past the boundary.
+            Step::make('end the timeline')
+                ->after('seed opening price')
+                ->repeatable()
+                ->act(function (Context $ctx): void {
+                    $product = $ctx->instance('product', Product::class);
+                    $validTo = CarbonImmutable::now()->addDays($ctx->randomInt(1, 90));
+
+                    $ctx->remember('end valid to', $validTo);
+                    $ctx->remember('end rejected', $this->attempt(
+                        fn () => $product->prices()->endAt($validTo, $this->drawCompact($ctx)),
+                    ));
+
+                    if ($ctx->get('end rejected') === false) {
+                        $this->recordEdit($ctx, $validTo, null);
+                    }
+                })
+                ->assertWhen(
+                    fn (Context $ctx): bool => $ctx->get('end rejected') === false,
+                    function (Context $ctx): void {
+                        $product = $ctx->instance('product', Product::class);
+                        $after = $ctx->instance('end valid to', CarbonImmutable::class)->addDay();
+
+                        Assert::assertCount(
+                            0,
+                            $product->prices()->validAt($after)->currentKnowledge()->excludeRetractions()->get(),
+                            'endAt must leave nothing valid after its boundary.',
+                        );
+                    },
+                ),
+
+            // Replace the whole timeline with a fresh set of contiguous segments.
+            // The old belief survives in record time; the invariants check that.
+            Step::make('supersede the timeline')
+                ->after('seed opening price')
+                ->repeatable()
+                ->act(function (Context $ctx): void {
+                    $product = $ctx->instance('product', Product::class);
+                    $segments = $ctx->randomInt(1, 3);
+
+                    $rows = [];
+                    $cursor = CarbonImmutable::parse(self::START);
+                    for ($i = 0; $i < $segments; $i++) {
+                        $last = $i === $segments - 1;
+                        $to = $last ? null : $cursor->addDays($ctx->randomInt(30, 200));
+                        $rows[] = [
+                            'amount' => $ctx->randomInt(1, 9) * 100,
+                            'valid_from' => $cursor->format('Y-m-d H:i:s.u'),
+                            'valid_to' => $to?->format('Y-m-d H:i:s.u'),
+                        ];
+                        if ($to !== null) {
+                            $cursor = $to;
+                        }
+                    }
+
+                    $rejected = $this->attempt(
+                        fn () => $product->prices()->supersedeTimeline($rows, $this->drawCompact($ctx)),
+                    );
+
+                    if (! $rejected) {
+                        // A supersession can move the value at any instant.
+                        $this->recordEdit($ctx, null, null);
+                    }
                 }),
         ];
     }
@@ -222,6 +305,106 @@ final class PriceTimelineJourney extends Journey
                     'A later write rewrote what was believed as of t0.',
                 );
             }),
+
+            // The value read *now* at a fixed historical instant is a pure
+            // function of the edits made to that instant's window. A step that
+            // does not edit a covering window — a clock advance, a compaction, an
+            // edit elsewhere — must leave every probe exactly where it was.
+            Invariant::make('historical values stay put unless a step edits them', function (Context $ctx): void {
+                if (! $ctx->has('product')) {
+                    return;
+                }
+
+                $product = $ctx->instance('product', Product::class);
+                $edits = $ctx->list('edited windows');
+                $ctx->forget('edited windows');
+
+                $baseline = $ctx->get('stability baseline');
+                $next = [];
+
+                foreach ($this->probeInstants() as $label => $at) {
+                    $current = $product->prices()
+                        ->validAt($at)
+                        ->currentKnowledge()
+                        ->excludeRetractions()
+                        ->first()?->amount;
+
+                    $next[$label] = $current;
+
+                    if (is_array($baseline) && array_key_exists($label, $baseline) && ! $this->coveredByAnyEdit($at, $edits)) {
+                        Assert::assertSame(
+                            $baseline[$label],
+                            $current,
+                            "The value at START+{$label}d moved without a step editing a window covering it.",
+                        );
+                    }
+                }
+
+                $ctx->remember('stability baseline', $next);
+            }),
         ];
+    }
+
+    /**
+     * Fixed probe instants across the timeline, keyed by their day-offset from
+     * START so violation messages read naturally.
+     *
+     * @return array<int, CarbonImmutable>
+     */
+    private function probeInstants(): array
+    {
+        $anchor = CarbonImmutable::parse(self::START);
+        $probes = [];
+
+        foreach ([10, 90, 300, 700] as $days) {
+            $probes[$days] = $anchor->addDays($days);
+        }
+
+        return $probes;
+    }
+
+    /**
+     * Record that the just-committed write may have changed the value across
+     * [$from, $to). A null bound is unbounded on that side (null/null = the whole
+     * timeline, as a supersession does).
+     */
+    private function recordEdit(Context $ctx, ?CarbonImmutable $from, ?CarbonImmutable $to): void
+    {
+        $ctx->push('edited windows', [
+            'from' => $from?->format('Y-m-d H:i:s.u'),
+            'to' => $to?->format('Y-m-d H:i:s.u'),
+        ]);
+    }
+
+    /**
+     * @param  array<int, mixed>  $edits
+     */
+    private function coveredByAnyEdit(CarbonImmutable $at, array $edits): bool
+    {
+        foreach ($edits as $edit) {
+            if (! is_array($edit)) {
+                continue;
+            }
+
+            $from = is_string($edit['from'] ?? null) ? CarbonImmutable::parse($edit['from']) : null;
+            $to = is_string($edit['to'] ?? null) ? CarbonImmutable::parse($edit['to']) : null;
+
+            $afterStart = $from === null || $at->greaterThanOrEqualTo($from);
+            $beforeEnd = $to === null || $at->lessThan($to);
+
+            if ($afterStart && $beforeEnd) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Draw a compaction preference: package default, force-on, or force-off.
+     */
+    private function drawCompact(Context $ctx): ?bool
+    {
+        return [null, true, false][$ctx->randomInt(0, 2)];
     }
 }
