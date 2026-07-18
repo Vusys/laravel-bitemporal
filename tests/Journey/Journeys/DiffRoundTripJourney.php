@@ -147,7 +147,7 @@ final class DiffRoundTripJourney extends Journey
                     // The pre-retraction value row was believed at kA (absent when
                     // the window was both created and retracted after kA).
                     ...$diff->retracted
-                        ->map(fn (TemporalRetraction $r): ?string => $r->from !== null ? $this->canonical($r->from) : null)
+                        ->map(fn (TemporalRetraction $r): ?string => $r->from instanceof Model ? $this->canonical($r->from) : null)
                         ->filter(fn (?string $canonical): bool => $canonical !== null)
                         ->all(),
                 ];
