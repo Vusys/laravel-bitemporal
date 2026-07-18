@@ -22,6 +22,16 @@ use Vusys\Bitemporal\Exceptions\TemporalUnsupportedDatabaseException;
  */
 final class TemporalBlueprintMacros
 {
+    /**
+     * Sentinel a NULL dimension collapses to inside the EXCLUDE constraint.
+     * `NULL = NULL` is NULL (not true), so a plain `dim WITH =` operator never
+     * conflicts two NULL-dimension rows — the package treats NULL as a
+     * first-class dimension value, so the DB-level defence must too (issue #68).
+     * `coalesce(dim::text, <sentinel>)` gives NULL-equal semantics; the sentinel
+     * is deliberately obscure so a real dimension value never collides with it.
+     */
+    public const string NULL_DIMENSION_SENTINEL = '__bitemporal_null_dimension__';
+
     public static function register(): void
     {
         self::registerPostgresRangeGrammar();
@@ -108,7 +118,11 @@ final class TemporalBlueprintMacros
                 TemporalBlueprintMacros::requireBtreeGist();
                 TemporalBlueprintMacros::addExcludeCommand($this, [
                     'index' => $overlapIndex($this->getTable(), 'bitemporal_excl'),
-                    'scalars' => [...$entityColumns, ...$dimensions],
+                    // Entity columns are NOT NULL, so plain equality is correct
+                    // and keeps their native (typed) gist comparison. Dimensions
+                    // are nullable and are emitted with NULL-equal semantics.
+                    'scalars' => $entityColumns,
+                    'dimensions' => $dimensions,
                     'ranges' => [$options['valid_period'] ?? 'valid_period', $options['recorded_period'] ?? 'recorded_period'],
                 ]);
 
@@ -138,6 +152,7 @@ final class TemporalBlueprintMacros
             PostgresGrammar::macro('compileBitemporalExclude', function (Blueprint $blueprint, Fluent $command): string {
                 /** @var PostgresGrammar $this */
                 $scalars = $command->get('scalars', []);
+                $dimensions = $command->get('dimensions', []);
                 $ranges = $command->get('ranges', []);
                 $index = $command->get('index');
                 $parts = [];
@@ -145,6 +160,18 @@ final class TemporalBlueprintMacros
                 foreach (is_array($scalars) ? $scalars : [] as $column) {
                     if (is_string($column)) {
                         $parts[] = $this->wrap($column).' WITH =';
+                    }
+                }
+
+                // Nullable dimensions need NULL-equal semantics: coalesce to a
+                // sentinel so two NULL-dimension rows collide in the constraint
+                // (issue #68). Cast to text so a single sentinel works for any
+                // dimension column type.
+                $sentinel = "'".TemporalBlueprintMacros::NULL_DIMENSION_SENTINEL."'";
+
+                foreach (is_array($dimensions) ? $dimensions : [] as $column) {
+                    if (is_string($column)) {
+                        $parts[] = '(coalesce('.$this->wrap($column).'::text, '.$sentinel.')) WITH =';
                     }
                 }
 
