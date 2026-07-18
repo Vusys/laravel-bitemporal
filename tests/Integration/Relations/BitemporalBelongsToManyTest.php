@@ -123,4 +123,45 @@ final class BitemporalBelongsToManyTest extends IntegrationTestCase
 
         $this->assertInstanceOf(UserRoleAssignment::class, $assignment);
     }
+
+    public function test_get_without_using_throws_the_same_guard_as_writes(): void
+    {
+        $user = $this->makeUser();
+
+        // No ->using(): the query is still the far-model stand-in, so a read
+        // must fail fast with the resolution error rather than hit the wrong
+        // table — the same guard writes already enforce (issue #45).
+        $this->expectException(TemporalConfigurationException::class);
+        $this->expectExceptionMessage('requires ->using(PivotClass::class)');
+
+        $user->bitemporalBelongsToMany(Role::class)->get();
+    }
+
+    public function test_get_results_without_using_throws(): void
+    {
+        $user = $this->makeUser();
+
+        $this->expectException(TemporalConfigurationException::class);
+
+        $user->bitemporalBelongsToMany(Role::class)->getResults();
+    }
+
+    public function test_eager_constraints_without_using_throws(): void
+    {
+        $user = $this->makeUser();
+
+        $this->expectException(TemporalConfigurationException::class);
+
+        $user->bitemporalBelongsToMany(Role::class)->addEagerConstraints([$user]);
+    }
+
+    public function test_reads_succeed_once_using_is_bound(): void
+    {
+        $user = $this->makeUser();
+        $role = $this->makeRole();
+        $user->roles()->attachFor(related: $role, validFrom: '2026-06-01');
+
+        // The resolved relation (built with ->using()) reads normally.
+        $this->assertCount(1, $user->bitemporalBelongsToMany(Role::class)->using(UserRoleAssignment::class)->currentKnowledge()->get());
+    }
 }

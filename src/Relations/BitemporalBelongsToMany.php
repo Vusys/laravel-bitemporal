@@ -8,6 +8,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Vusys\Bitemporal\BitemporalBuilder;
@@ -75,6 +76,49 @@ class BitemporalBelongsToMany extends HasMany
         }
 
         return $this;
+    }
+
+    /**
+     * Guard reads the same way writes are guarded. Until ->using() rebinds the
+     * query onto the pivot model, $this->query is the far-model stand-in and
+     * $this->foreignKey points at a column that usually does not exist, so a
+     * read would hit the wrong table (SQL error, or silently wrong rows). These
+     * are the read-execution entry points — lazy (getResults), direct/sole/first
+     * (get), and eager (addEagerConstraints); none run during construction, so
+     * the valid `bitemporalBelongsToMany(Related::class)->using(Pivot::class)`
+     * chaining order is preserved.
+     *
+     * @return Collection<int, Model>
+     */
+    #[\Override]
+    public function getResults()
+    {
+        $this->assertResolved();
+
+        return parent::getResults();
+    }
+
+    /**
+     * @param  array<int, string>  $columns
+     * @return Collection<int, Model>
+     */
+    #[\Override]
+    public function get($columns = ['*'])
+    {
+        $this->assertResolved();
+
+        return parent::get($columns);
+    }
+
+    /**
+     * @param  array<int, TDeclaringModel>  $models
+     */
+    #[\Override]
+    public function addEagerConstraints(array $models): void
+    {
+        $this->assertResolved();
+
+        parent::addEagerConstraints($models);
     }
 
     /**
