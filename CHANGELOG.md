@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `TemporalDiff::$retracted` and the `TemporalRetraction` value object: a valid window that was withdrawn (became an anti-row) between the two knowledge dates is now reported in its own bucket. `TemporalRetraction` carries both sides — `to` is the anti-row believed on the later side, `from` the value row believed on the earlier side (or `null` when the window was both created and retracted after the earlier date) — so a diff remains a complete reconciliation of the two beliefs. `bitemporal:diff-timelines` prints a `retracted:` count.
+
+### Changed
+- **BREAKING:** the diff engine no longer classifies a retraction as `changed`/`added`. A window that newly became an anti-row (`is_retraction` `false → true`, or a retraction present only on the `to` side) now lands in `TemporalDiff::$retracted` instead of `changed` (with `is_retraction` in the changed set) or `added`. This stops consumers from misreading a withdrawal (`amount → null`) as a real value change. `TemporalDiff`'s constructor gained a `$retracted` parameter (between `$changed` and `$unchanged`) and `isEmpty()` now also considers it — code that constructs a `TemporalDiff` by hand or reads only the previous buckets must account for the new one.
+
 ## [0.6.0] - 2026-07-18
 
 A simpler entity declaration, plus an audit-driven wave of correctness and concurrency hardening across the writer, backfill, locking, and boundary-precision paths — and a property-based journey-testing harness that exercises the invariants against the real database matrix.

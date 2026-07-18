@@ -74,8 +74,9 @@ Both return a `TemporalDiff`:
 $diff->added;       // Collection<Model> — segments present only at `toKnownAt`
 $diff->removed;     // Collection<Model> — segments present only at `fromKnownAt`
 $diff->changed;     // Collection<TemporalDiffPair> — same span, different value
+$diff->retracted;   // Collection<TemporalRetraction> — a span withdrawn between the two dates
 $diff->unchanged;   // Collection<Model> — identical in both
-$diff->isEmpty();   // true when nothing was added, removed, or changed
+$diff->isEmpty();   // true when nothing was added, removed, changed, or retracted
 ```
 
 A `TemporalDiffPair` describes one segment that changed value across the two dates:
@@ -89,6 +90,18 @@ $pair->changedAttributes;   // ['amount'] — the attribute names that differ
 ```
 
 So a correction that raised a price from `1000` to `1200` surfaces as one `changed` pair whose `changedAttributes` contains `amount`, with `from->amount === 1000` and `to->amount === 1200`.
+
+A span that became a **retraction** (an [anti-row](01-concepts.md#anti-rows-retractions)) between the two dates is *not* a value change — surfacing it as `changed` would let a consumer misread the withdrawal (`amount → null`, `is_retraction → true`) as a real price change to `NULL`. It lands in its own `retracted` bucket instead:
+
+```php
+$retraction = $diff->retracted->first();
+
+$retraction->to;    // the anti-row believed at `toKnownAt` (is_retraction === true)
+$retraction->from;  // the value row believed at `fromKnownAt`, or null when the
+                    // span was both created and retracted after `fromKnownAt`
+```
+
+Both sides are preserved, so `added ∪ changed.to ∪ retracted.to` (plus `unchanged`) reconstructs the belief at `toKnownAt`, and `removed ∪ changed.from ∪ retracted.from` (plus `unchanged`) reconstructs the belief at `fromKnownAt`.
 
 ## From the command line
 

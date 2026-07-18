@@ -61,7 +61,7 @@ php artisan bitemporal:audit-table --model="App\Models\ProductPrice" --entity-id
 
 ### `bitemporal:diff-timelines`
 
-Compares what was believed about an entity at two recorded dates — the command-line face of [`diffTimelines()`](12-diffs-and-timelines.md). It prints the added / removed / changed / unchanged counts and the changed attribute names.
+Compares what was believed about an entity at two recorded dates — the command-line face of [`diffTimelines()`](12-diffs-and-timelines.md). It prints the added / removed / changed / retracted / unchanged counts and the changed attribute names.
 
 ```bash
 php artisan bitemporal:diff-timelines \
@@ -72,7 +72,7 @@ php artisan bitemporal:diff-timelines \
 ```
 
 ```
-added: 1, removed: 0, changed: 1, unchanged: 5
+added: 1, removed: 0, changed: 1, retracted: 0, unchanged: 5
   changed [amount]
 ```
 
