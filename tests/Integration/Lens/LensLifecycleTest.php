@@ -36,18 +36,63 @@ final class LensLifecycleTest extends TestCase
         });
     }
 
-    public function test_job_listener_resets_then_asserts(): void
+    public function test_job_listener_preserves_an_open_outer_frame(): void
     {
         $stack = new LensStack;
         $listener = new AsOfJobListener($stack);
 
-        // A frame leaked from a previous job is cleared before the next runs.
+        // A job dispatched synchronously inside an asOf() callback must keep the
+        // caller's still-open outer frame rather than have it wiped (issue #72).
         $stack->validAt('2026-01-01', function () use ($listener, $stack): void {
             $listener->handleProcessing();
-            $this->assertSame(0, $stack->depth());
+            $this->assertSame(1, $stack->depth(), 'the outer frame must survive the job turn');
+
+            $listener->handleProcessed();
+            $this->assertSame(1, $stack->depth(), 'the outer frame must survive after the job finishes');
         });
 
-        $listener->handleProcessed();
+        $this->assertSame(0, $stack->depth());
+    }
+
+    public function test_job_listener_trims_a_frame_leaked_by_the_job(): void
+    {
+        $stack = new LensStack;
+        $listener = new AsOfJobListener($stack);
+
+        // Genuine worker-turn boundary: baseline is zero.
+        $listener->handleProcessing();
+
+        // Simulate a frame the job leaked (e.g. worker killed mid-callback).
+        $stack->validAt('2026-01-01', function () use ($listener, $stack): void {
+            $this->expectException(TemporalConfigurationException::class);
+
+            try {
+                $listener->handleProcessed();
+            } finally {
+                // The leak is trimmed even though the assertion throws.
+                $this->assertSame(0, $stack->depth());
+            }
+        });
+    }
+
+    public function test_nested_job_turns_restore_each_baseline(): void
+    {
+        $stack = new LensStack;
+        $listener = new AsOfJobListener($stack);
+
+        $stack->validAt('2026-01-01', function () use ($listener, $stack): void {
+            $listener->handleProcessing(); // baseline 1
+
+            $stack->validAt('2026-02-01', function () use ($listener, $stack): void {
+                $listener->handleProcessing(); // baseline 2 (nested sync dispatch)
+                $listener->handleProcessed();
+                $this->assertSame(2, $stack->depth());
+            });
+
+            $listener->handleProcessed();
+            $this->assertSame(1, $stack->depth());
+        });
+
         $this->assertSame(0, $stack->depth());
     }
 

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Collection;
+use Vusys\Bitemporal\Exceptions\TemporalDomainException;
 use Vusys\Bitemporal\Support\AttributeEquality;
 use Vusys\Bitemporal\Support\TemporalEntityMetadata;
 
@@ -101,7 +102,21 @@ final class DiffEngine
     {
         $keyed = [];
         foreach ($rows as $row) {
-            $keyed[self::matchKey($row, $meta)] = $row;
+            $key = self::matchKey($row, $meta);
+
+            if (isset($keyed[$key])) {
+                // Two rows in one believed slice sharing (valid_from, dimensions)
+                // can only arise from overlapping / re-segmented rows that
+                // violate the non-overlap invariant. Overwriting would silently
+                // drop the earlier row and could report two different timelines
+                // as identical, so surface the bad state rather than hide it.
+                throw TemporalDomainException::invariant(
+                    "duplicate match key '{$key}' in a single believed slice (overlapping rows)",
+                    'DiffEngine::keyByMatch',
+                );
+            }
+
+            $keyed[$key] = $row;
         }
 
         return $keyed;

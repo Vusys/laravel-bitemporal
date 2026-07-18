@@ -7,6 +7,7 @@ namespace Vusys\Bitemporal\Console\Commands;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Vusys\Bitemporal\Idempotency\IdempotencyWindow;
 
 /**
  * Deletes idempotency-key rows older than the configured retention window. Run
@@ -21,8 +22,7 @@ final class PruneIdempotencyKeysCommand extends Command
 
     public function handle(): int
     {
-        $window = config('bitemporal.writes.idempotency_window', '7 days');
-        $window = is_string($window) ? $window : '7 days';
+        $window = IdempotencyWindow::resolve();
 
         $connection = $this->option('connection');
         $connection = is_string($connection) && $connection !== '' ? $connection : null;
