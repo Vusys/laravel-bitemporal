@@ -50,4 +50,15 @@ class Product extends Model
     {
         return $this->bitemporalMany(ProductPriceWithDimensions::class);
     }
+
+    /**
+     * A temporal-rows model on a different connection than this entity (issue
+     * #67). Only usable with the boot guard disabled.
+     *
+     * @return BitemporalMany<SecondConnectionPrice, $this>
+     */
+    public function secondConnectionPrices(): BitemporalMany
+    {
+        return $this->bitemporalMany(SecondConnectionPrice::class);
+    }
 }
