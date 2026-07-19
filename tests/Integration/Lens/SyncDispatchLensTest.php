@@ -62,7 +62,7 @@ final class SyncDispatchLensTest extends IntegrationTestCase
 
         $pinnedAfterDispatch = TemporalLens::asOf('2026-09-01', '2026-02-01', function () use ($product): ?int {
             // The sync queue fires JobProcessing/JobProcessed around handle().
-            CapturesLensStateJob::dispatchSync();
+            dispatch_sync(new CapturesLensStateJob);
 
             // With the frame preserved the read still resolves to the belief held
             // in February (1000), not the current-knowledge 1200.
