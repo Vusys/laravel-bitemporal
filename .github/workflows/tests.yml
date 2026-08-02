@@ -104,3 +104,22 @@ jobs:
           # coverage into each backend so the totals stay complete.
           flags: ${{ matrix.db }}
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  gate:
+    needs: [test, journeys]
+    runs-on: ubuntu-latest
+    if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
+    name: CI gate
+
+    steps:
+      - name: Require every upstream job to have passed or been skipped
+        run: |
+          results='${{ join(needs.*.result, ' ') }}'
+          echo "upstream results: ${results}"
+          for r in ${results}; do
+            if [ "${r}" = "failure" ] || [ "${r}" = "cancelled" ]; then
+              echo "::error::a required job did not pass (result=${r})"
+              exit 1
+            fi
+          done
+          echo "all required jobs passed (or were legitimately skipped)"

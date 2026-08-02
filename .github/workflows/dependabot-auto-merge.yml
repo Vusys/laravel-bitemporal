@@ -1,0 +1,38 @@
+name: Dependabot auto-merge
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        # SHA-pinned: this workflow holds contents:write + PR approval
+        # power, so a hijacked third-party tag must not be able to ride it.
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Patch updates auto-merge for everything; minor updates only for dev
+      # dependencies. A minor bump of a production dependency can change
+      # runtime behaviour and gets a human review. `gh pr merge --auto` waits
+      # on the "CI gate" and "Larastan · Pint · Rector" checks required by branch protection — without that
+      # protection in place auto-merge would land the PR without waiting for CI.
+      #
+      # No self-approve: GITHUB_TOKEN cannot approve PRs, and branch
+      # protection here requires the status check but not a review, so
+      # enabling auto-merge is enough.
+      - name: Enable auto-merge
+        if: |
+          steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+          (steps.meta.outputs.update-type == 'version-update:semver-minor' && steps.meta.outputs.dependency-type == 'direct:development')
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
