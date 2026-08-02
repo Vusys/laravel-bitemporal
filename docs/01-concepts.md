@@ -23,7 +23,7 @@ A *spell* is this package's name for a half-open time interval `[from, to)` — 
 
 Half-open intervals are deliberate: they tile without gaps or overlaps. A price valid `[Feb 1, Mar 1)` and one valid `[Mar 1, Apr 1)` meet exactly at midnight on 1 March with no ambiguity about which one owns that instant — the second does.
 
-Every temporal row therefore has a **valid spell** (`valid_from`, `valid_to`) and, when bitemporal, a **recorded spell** (`recorded_from`, `recorded_to`). The value object that represents a spell in PHP is [`Spell`](../src/Spell.php); a sequence of non-overlapping segments is a [`Timeline`](../src/Timeline.php).
+Every temporal row therefore has a **valid spell** (`valid_from`, `valid_to`) and, when bitemporal, a **recorded spell** (`recorded_from`, `recorded_to`). The value object that represents a spell in PHP is [`Spell`](https://github.com/Vusys/laravel-bitemporal/blob/master/src/Spell.php); a sequence of non-overlapping segments is a [`Timeline`](https://github.com/Vusys/laravel-bitemporal/blob/master/src/Timeline.php).
 
 ## Corrections never destroy history
 

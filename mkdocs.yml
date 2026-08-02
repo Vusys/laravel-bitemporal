@@ -7,6 +7,10 @@ edit_uri: edit/master/docs/
 
 docs_dir: docs
 
+# docs/README.md is a GitHub-facing index; the site home is docs/index.md.
+exclude_docs: |
+  README.md
+
 validation:
   nav:
     omitted_files: info
