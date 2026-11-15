@@ -62,6 +62,7 @@ final class ChangeEffectiveFromTest extends IntegrationTestCase
         $this->insertPrice($product, ['amount' => 1000, 'valid_from' => '2026-01-01', 'valid_to' => null]);
 
         $this->expectException(TemporalInvalidSpellException::class);
+        $this->expectExceptionMessage('use correct() for retroactive changes');
 
         $product->prices()->changeEffectiveFrom(['amount' => 1200], '2026-02-01');
     }
