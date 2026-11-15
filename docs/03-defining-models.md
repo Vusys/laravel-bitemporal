@@ -50,6 +50,7 @@ class Product extends Model
 {
     use HasBitemporalRelations;
 
+    /** @return BitemporalMany<ProductPrice, $this> */
     public function prices(): BitemporalMany
     {
         return $this->bitemporalMany(ProductPrice::class);
@@ -124,6 +125,13 @@ public function statuses(): BitemporalMany
     return $this->bitemporalMorphMany(Status::class);
 }
 ```
+
+## Static analysis
+
+The package works at PHPStan / Larastan level 9 with two things in place:
+
+- **Relation generics.** Declare `@return BitemporalMany<ProductPrice, $this>` (or `BitemporalOne<…>`) on each relation method, as above. Larastan then forwards `$product->prices()->validAt(…)->currentKnowledge()` to the temporal model's `BitemporalBuilder` and types the rows it returns.
+- **The period columns.** Larastan infers properties from migrations, but it can't see the columns the Blueprint macros add. The package ships a PHPStan extension that declares them on every `Bitemporal` model: `valid_from` and `recorded_from` as `CarbonImmutable`, `valid_to` and `recorded_to` as `CarbonImmutable|null`, and `is_retraction` as `bool`. With [phpstan/extension-installer](https://github.com/phpstan/extension-installer) it loads by itself; otherwise include `vendor/vusys/laravel-bitemporal/extension.neon`. If you renamed the columns in `bitemporal.columns`, pass the same names as `parameters.bitemporal.columns`. The entity's foreign key (`product_id`) isn't covered: declare it with `@property int $product_id`.
 
 ## Many-to-many timelines
 

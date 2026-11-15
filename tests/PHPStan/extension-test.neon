@@ -1,0 +1,6 @@
+includes:
+    - ../../extension.neon
+
+parameters:
+    scanFiles:
+        - data/period-columns.php

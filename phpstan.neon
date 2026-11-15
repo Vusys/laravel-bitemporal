@@ -13,6 +13,9 @@ parameters:
         # Optional Pest glue; references Pest's expect()/intercept()/extend()
         # which only exist when the host project installs Pest (not a dependency).
         - src/Testing/PestExpectations.php
+        # PHPStan type-inference fixtures, checked by PeriodColumnsExtensionTest
+        # with the shipped extension loaded rather than analysed as code.
+        - tests/PHPStan/data
     stubFiles:
         - phpstan-stubs/Blueprint.stub
         - phpstan-stubs/BitemporalRelation.stub

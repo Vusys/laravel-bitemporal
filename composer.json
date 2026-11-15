@@ -35,6 +35,9 @@
     "extra": {
         "laravel": {
             "providers": ["Vusys\\Bitemporal\\BitemporalServiceProvider"]
+        },
+        "phpstan": {
+            "includes": ["extension.neon"]
         }
     },
     "minimum-stability": "stable",
