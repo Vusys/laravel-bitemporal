@@ -39,6 +39,10 @@ final class BootGuardColumnsExist implements BootGuard
             }
 
             $tracksRecordedTime = $model->tracksRecordedTime();
+            // One introspection for the table, not one per column: hasColumn()
+            // re-reads the schema every call, and this runs on the first use
+            // of the model in every process (every request, under FPM).
+            $present = array_map(strtolower(...), $schema->getColumnListing($table));
             $missing = [];
 
             foreach ($model->temporalColumnMap() as $logical => $column) {
@@ -46,7 +50,7 @@ final class BootGuardColumnsExist implements BootGuard
                     continue;
                 }
 
-                if (! $schema->hasColumn($table, $column)) {
+                if (! in_array(strtolower($column), $present, true)) {
                     $missing[] = $column;
                 }
             }

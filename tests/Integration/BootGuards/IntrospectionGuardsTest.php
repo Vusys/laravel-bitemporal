@@ -23,6 +23,20 @@ final class IntrospectionGuardsTest extends IntegrationTestCase
         $this->assertNull((new BootGuardColumnsExist)->check(new ProductPrice));
     }
 
+    public function test_columns_exist_guard_introspects_the_table_once(): void
+    {
+        $queries = 0;
+        DB::listen(function () use (&$queries): void {
+            $queries++;
+        });
+
+        (new BootGuardColumnsExist)->check(new ProductPrice);
+
+        // hasTable() plus one column listing; it used to read the schema again
+        // for each of the five temporal columns.
+        $this->assertLessThanOrEqual(3, $queries);
+    }
+
     public function test_columns_exist_guard_flags_a_missing_overridden_column(): void
     {
         config(['bitemporal.guards.enabled' => false]);
