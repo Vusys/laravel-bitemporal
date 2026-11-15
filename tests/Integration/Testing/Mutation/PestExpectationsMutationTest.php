@@ -136,20 +136,20 @@ namespace Vusys\Bitemporal\Tests\Integration\Testing\Mutation {
 
         public function test_to_throw_temporal_exception_passes(): void
         {
-            expect(fn () => throw new TemporalInvalidSpellException('boom'))
+            expect(fn (): never => throw new TemporalInvalidSpellException('boom'))
                 ->toThrowTemporalException(TemporalInvalidSpellException::class);
         }
 
         public function test_to_throw_temporal_exception_with_message_passes(): void
         {
-            expect(fn () => throw new TemporalInvalidSpellException('it went boom'))
+            expect(fn (): never => throw new TemporalInvalidSpellException('it went boom'))
                 ->toThrowTemporalException(TemporalInvalidSpellException::class, 'boom');
         }
 
         public function test_to_throw_temporal_exception_wrong_type_throws(): void
         {
             $this->assertAssertionFails(
-                fn () => expect(fn () => throw new RuntimeException('nope'))
+                fn () => expect(fn (): never => throw new RuntimeException('nope'))
                     ->toThrowTemporalException(TemporalException::class),
                 'instance of class '.TemporalException::class,
             );
@@ -166,7 +166,7 @@ namespace Vusys\Bitemporal\Tests\Integration\Testing\Mutation {
         public function test_to_throw_temporal_exception_message_mismatch_throws(): void
         {
             $this->assertAssertionFails(
-                fn () => expect(fn () => throw new TemporalInvalidSpellException('boom'))
+                fn () => expect(fn (): never => throw new TemporalInvalidSpellException('boom'))
                     ->toThrowTemporalException(TemporalInvalidSpellException::class, 'NOT-PRESENT'),
                 'NOT-PRESENT',
             );

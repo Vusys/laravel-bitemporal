@@ -173,14 +173,17 @@ final class BitemporalServiceProviderMutationTest extends TestCase
         // listener were not wired, no job-turn baseline would be recorded and the
         // JobProcessed listener below would throw on the "leaked" frame instead
         // of passing — so this also pins the JobProcessing registration.
-        TemporalLens::asOf('2026-01-01', null, function () use ($job): void {
-            $this->assertSame(1, TemporalLens::depth());
+        // The stack the facade resolves to, read directly: its depth() is
+        // marked impure, which a facade's static call can't express.
+        $stack = resolve(LensStack::class);
+        TemporalLens::asOf('2026-01-01', null, function () use ($job, $stack): void {
+            $this->assertSame(1, $stack->depth());
 
             event(new JobProcessing('sync', $job));
-            $this->assertSame(1, TemporalLens::depth());
+            $this->assertSame(1, $stack->depth());
 
             event(new JobProcessed('sync', $job));
-            $this->assertSame(1, TemporalLens::depth());
+            $this->assertSame(1, $stack->depth());
         });
 
         $this->assertSame(0, TemporalLens::depth());

@@ -24,7 +24,7 @@ final class MakeBitemporalMigrationMutationTest extends TestCase
     {
         foreach ($this->generated as $path) {
             if (file_exists($path)) {
-                @unlink($path);
+                File::delete($path);
             }
         }
 

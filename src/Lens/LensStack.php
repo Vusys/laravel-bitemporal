@@ -168,6 +168,12 @@ final class LensStack
         return $this->frames === [] ? null : $this->frames[count($this->frames) - 1];
     }
 
+    /**
+     * Impure: frames are pushed and popped between calls, so two reads around
+     * an asOf() or a job boundary must not be assumed equal.
+     *
+     * @phpstan-impure
+     */
     public function depth(): int
     {
         return count($this->frames);

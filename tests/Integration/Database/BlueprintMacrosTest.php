@@ -44,10 +44,10 @@ final class BlueprintMacrosTest extends IntegrationTestCase
         });
 
         foreach (Schema::getIndexes('macro_prices') as $index) {
-            $name = $index['name'] ?? '';
+            $name = $index['name'];
             $this->assertLessThanOrEqual(
                 64,
-                strlen(is_string($name) ? $name : ''),
+                strlen($name),
                 "index name '{$name}' exceeds the 64-character identifier limit",
             );
         }
