@@ -23,6 +23,8 @@ return RectorConfig::configure()
     // (BitemporalBuilder<static>, BitemporalMany<TRelated, $this>, …). A native
     // return type would erase the generic for Larastan, so leave them untyped.
     ->withSkip([
+        // PHPStan type-inference fixtures: their shape is what's under test.
+        __DIR__.'/tests/PHPStan/data',
         ReturnTypeFromReturnNewRector::class => [
             __DIR__.'/src/Bitemporal.php',
             __DIR__.'/src/Concerns/HasBitemporalRelations.php',

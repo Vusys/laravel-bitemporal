@@ -1,0 +1,16 @@
+parametersSchema:
+    bitemporal: structure([
+        columns: arrayOf(string(), string())
+    ])
+
+parameters:
+    bitemporal:
+        columns: []
+
+services:
+    -
+        class: Vusys\Bitemporal\PHPStan\PeriodColumnsExtension
+        arguments:
+            columns: %bitemporal.columns%
+        tags:
+            - phpstan.broker.propertiesClassReflectionExtension
