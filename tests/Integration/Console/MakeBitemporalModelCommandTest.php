@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Vusys\Bitemporal\Tests\Integration\Console;
 
+use Illuminate\Support\Facades\File;
 use Illuminate\Testing\PendingCommand;
 use Vusys\Bitemporal\Tests\TestCase;
 
@@ -14,7 +15,7 @@ final class MakeBitemporalModelCommandTest extends TestCase
     protected function tearDown(): void
     {
         if ($this->generated !== '' && file_exists($this->generated)) {
-            @unlink($this->generated);
+            File::delete($this->generated);
         }
 
         parent::tearDown();

@@ -26,9 +26,7 @@ final class SpellPropertyTest extends TestCase
 
         $to = $allowOpen && random_int(0, 5) === 0
             ? null
-            : ($from === null
-                ? $base->addDays(random_int(0, 200))
-                : $from->addDays(random_int(1, 200)));
+            : ($from?->addDays(random_int(1, 200)) ?? $base->addDays(random_int(0, 200)));
 
         return new Spell($from, $to);
     }
