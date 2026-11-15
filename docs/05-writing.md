@@ -8,7 +8,7 @@ All write methods are called on a `bitemporalMany()` (or `bitemporalMorphMany()`
 
 The distinction matters:
 
-- **`changeEffectiveFrom`** — a forward-only change. "From today, the price is £12." It closes the open-ended current segment and starts a new one. Use this for genuine changes in the world.
+- **`changeEffectiveFrom`** — a forward-only change. "From today, the price is £12." It closes the open-ended current segment and starts a new one. Use this for genuine changes in the world. A `validFrom` in the past (beyond `writes.future_validity_tolerance_ms`, one second by default) throws `TemporalInvalidSpellException`: correct the past with `correct()`, or import it with [`backfill()`](#backfilling-history). To seed a realistic history, where each change is recorded on the day it happened, set the clock to each event's date before writing it.
 - **`correct`** — rewrites the value over an arbitrary window, including the past. "Actually, the price was £12 for all of February." This can split an existing segment and inserts a corrected row while preserving the superseded row in recorded history. Use this to fix mistakes.
 
 ```php

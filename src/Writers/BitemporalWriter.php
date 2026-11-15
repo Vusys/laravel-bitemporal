@@ -841,7 +841,7 @@ final readonly class BitemporalWriter
         $threshold = CarbonImmutable::now($this->timezone())->subMilliseconds($tolerance);
 
         if ($from->lessThan($threshold)) {
-            throw new TemporalInvalidSpellException('changeEffectiveFrom requires a forward-dated validFrom; use correctPeriod for retroactive changes');
+            throw new TemporalInvalidSpellException('changeEffectiveFrom requires a forward-dated validFrom; use correct() for retroactive changes, or backfill() to import history');
         }
     }
 
