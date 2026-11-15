@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Vusys\Bitemporal\Tests\Integration\Console\Mutation;
 
+use Illuminate\Support\Facades\File;
 use Illuminate\Testing\PendingCommand;
 use Vusys\Bitemporal\Tests\TestCase;
 
@@ -16,7 +17,7 @@ final class MakeBitemporalFactoryCommandMutationTest extends TestCase
     {
         foreach ($this->generated as $path) {
             if (file_exists($path)) {
-                @unlink($path);
+                File::delete($path);
             }
 
             $dir = \dirname($path);
@@ -84,7 +85,7 @@ final class MakeBitemporalFactoryCommandMutationTest extends TestCase
         // reflects what THIS run's generator produced.
         $literal = $app->databasePath('factories/Nested\\GizmoFactory.php');
         if (file_exists($literal)) {
-            @unlink($literal);
+            File::delete($literal);
         }
         $this->generated[] = $literal;
 

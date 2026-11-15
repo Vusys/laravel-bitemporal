@@ -15,7 +15,7 @@ final class MakeBitemporalMigrationCommandTest extends TestCase
     protected function tearDown(): void
     {
         if ($this->generated !== '' && file_exists($this->generated)) {
-            @unlink($this->generated);
+            File::delete($this->generated);
         }
 
         parent::tearDown();

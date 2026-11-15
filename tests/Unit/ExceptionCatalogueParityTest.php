@@ -192,7 +192,7 @@ final class ExceptionCatalogueParityTest extends TestCase
         // enforce is that no subclass bolts on its *own* public constructor and
         // thereby re-opens a second construction path around the factories.
         $ctor = $ref->getConstructor();
-        $declaresOwnConstructor = $ctor !== null && $ctor->getDeclaringClass()->getName() === $class;
+        $declaresOwnConstructor = $ctor instanceof ReflectionMethod && $ctor->getDeclaringClass()->getName() === $class;
         $this->assertFalse(
             $declaresOwnConstructor && $ctor->isPublic(),
             "{$class} must not declare its own public constructor; construct via named factories",
