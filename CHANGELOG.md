@@ -7,11 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-16
+
+Static-analysis support for consumers, a clearer diff of retractions (a **breaking** change to `TemporalDiff`; see Changed), and maintenance fixes. bitemporal is now in maintenance mode: fixes and small ergonomics, staying on 0.x.
+
 ### Added
+- A PHPStan extension, auto-loaded by phpstan/extension-installer, that types the period columns on every Bitemporal model: `valid_from`/`recorded_from` as `CarbonImmutable`, `valid_to`/`recorded_to` as `CarbonImmutable|null`, and `is_retraction` as `bool`. Renamed columns are set with the `bitemporal.columns` PHPStan parameter. The docs now show the relation generics (`BitemporalMany<Price, $this>`) that let Larastan type `validAt()` and friends (#126, #130).
 - `TemporalDiff::$retracted` and the `TemporalRetraction` value object: a valid window that was withdrawn (became an anti-row) between the two knowledge dates is now reported in its own bucket. `TemporalRetraction` carries both sides — `to` is the anti-row believed on the later side, `from` the value row believed on the earlier side (or `null` when the window was both created and retracted after the earlier date) — so a diff remains a complete reconciliation of the two beliefs. `bitemporal:diff-timelines` prints a `retracted:` count.
 
 ### Changed
 - **BREAKING:** the diff engine no longer classifies a retraction as `changed`/`added`. A window that newly became an anti-row (`is_retraction` `false → true`, or a retraction present only on the `to` side) now lands in `TemporalDiff::$retracted` instead of `changed` (with `is_retraction` in the changed set) or `added`. This stops consumers from misreading a withdrawal (`amount → null`) as a real value change. `TemporalDiff`'s constructor gained a `$retracted` parameter (between `$changed` and `$unchanged`) and `isEmpty()` now also considers it — code that constructs a `TemporalDiff` by hand or reads only the previous buckets must account for the new one.
+
+### Fixed
+- `changeEffectiveFrom()`'s error for a date in the past names `correct()`, the method that exists, not `correctPeriod()` (#125, #129).
+
+### Performance
+- The columns guard reads the table's columns once, not once per column (#127).
 
 ## [0.6.0] - 2026-07-18
 
